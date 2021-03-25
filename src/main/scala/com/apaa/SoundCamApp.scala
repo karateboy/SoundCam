@@ -1,11 +1,19 @@
 //#full-example
 package com.apaa
 
-import akka.actor.typed.ActorSystem
+import akka.actor.typed.{ActorSystem, Behavior}
+import akka.actor.typed.scaladsl.Behaviors
 
 //#main-class
 object SoundCamApp extends App {
-  val soundCamClient: ActorSystem[SoundCamClient.Command] = ActorSystem(SoundCamClient(), "SoundCamClient")
+  sealed trait Command
+  def apply(): Behavior[Command] =
+    Behaviors.setup {
+      context =>
+        val client = context.spawn(SoundCamClient(), "soundCamClient")
+        Behaviors.ignore
+    }
 
-  soundCamClient ! SoundCamClient.ConnectSoundCam("", 1234)
+  val soundCamApp: ActorSystem[SoundCamApp.Command] = ActorSystem(SoundCamApp(), "SoundCamApp")
+
 }

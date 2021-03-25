@@ -7,7 +7,7 @@ object SoundCamClient {
   def apply(): Behavior[Command] =
     Behaviors.setup { context =>
       //#create-actors
-      //val greeter = context.spawn(Greeter(), "soundCamProtocol")
+      val protocol = context.spawn(SoundCamProtocol(), "soundCamProtocol")
       //#create-actors
 
       Behaviors.receiveMessage {
@@ -23,8 +23,8 @@ object SoundCamClient {
 
   sealed trait Command
 
-  sealed case class ConnectSoundCam(address: String, port: Int) extends Command
+  final case class ConnectSoundCam(address: String, port: Int) extends Command
 
-  case object FindSoundCam extends Command
+  final case object FindSoundCam extends Command
 
 }
