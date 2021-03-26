@@ -1,13 +1,11 @@
 package com.apaa
 
-import akka.actor.{ActorRef, ActorSystem, typed}
-import akka.actor.typed.Behavior
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.io.IO
-import akka.stream.scaladsl._
 
-import java.net.InetSocketAddress
-
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import akka.io.{IO, Tcp, Udp}
+import akka.io.Tcp._
+import akka.util.ByteString
+import com.apaa.SoundCamClient.DiscoverSoundCam
 
 object SoundCamProtocol {
   trait Command
@@ -42,35 +40,51 @@ object SoundCamProtocol {
   case object Reset extends Command
 
 
-  def apply(): Behavior[Command] = Behaviors.setup { context =>
+  def props(client: akka.actor.typed.ActorRef[SoundCamClient.Command]) = Props(classOf[SoundCamProtocol], client)
 
-    implicit val sys = context.system.classicSystem
-    //#create-actors
-    //val greeter = context.spawn(Greeter(), "soundCamProtocol")
-    //#create-actors
-    val addr = new InetSocketAddress("127.0.0.1", 123)
-    val manager: ActorRef = IO(Tcp)
 
-    Behaviors.receiveMessage {
-      case ConnectSoundCam(ip, port)=>
-        Behaviors.same
-    }
+}
+
+class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]) extends Actor with ActorLogging
+{
+  import SoundCamProtocol._
+  import SoundCamClient._
+
+  log.info("SoundCamProtocol online")
+  implicit val sys = context.system.classicSystem
+  val tcpManager: ActorRef = IO(Tcp)
+  val udpManager = IO(Udp)
+
+  def unconnected() : Receive = {
+    case Tcp.CommandFailed(_: Connect) =>
+       client ! SoundCamConnectFailed
+
+    case c @ Connected(remoteAddress, localAddress) =>
+      val connection = sender()
+      connection ! Register(self)
+      client ! SoundCamConnected
+      context become connected(connection)
   }
 
-  def unconnected():Behavior[Command] = Behaviors.setup{
-    context =>
-      Behaviors.receiveMessage{
-        case FindSoundCam =>
-          Behaviors.ignore
-      }
+  def connected(connection: ActorRef):Receive = {
+    case data: ByteString =>
+      connection ! Write(data)
+    case CommandFailed(w: Write) =>
+      // O/S buffer was full
+      log.error("OS buffer was full!")
+
+    case Received(data) =>
+
+    case _:ConnectionClosed =>
+      client ! ConnectionClosed
+      context become unconnected()
   }
 
-  def connected():Behavior[Command] = Behaviors.receiveMessage{
-    case ConnectSoundCam(ip, port)=>
-      Behaviors.ignore
+  override def receive: Receive = unconnected()
+
+  override def postStop(): Unit = {
+    super.postStop()
   }
 }
 
-class SoundCamProtocol private (){
 
-}
