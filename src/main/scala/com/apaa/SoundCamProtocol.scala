@@ -18,8 +18,7 @@ object SoundCamProtocol {
     val byteBuffer = ByteBuffer.allocate(8 + len)
     byteBuffer.put(0, cmd)
     byteBuffer.put(1, invokeID)
-    byteBuffer.put(2, 0)
-    byteBuffer.put(3, 0)
+    byteBuffer.putShort(2, 0)
     byteBuffer.putInt(4, len)
     byteBuffer
   }
@@ -46,8 +45,10 @@ object SoundCamProtocol {
   final case object IDRequest extends Command
 
   final case object Reset extends Command
-
-
+  final case class PrepareState(state:Int) extends Command
+  final case object FinishState extends Command
+  final case object StartProcedure extends Command
+  final case object StopProcedure extends Command
 }
 
 class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]) extends Actor with ActorLogging {
@@ -81,7 +82,7 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
     case DiscoverSoundCam =>
       //udpManager ! Udp.Bind(self, new InetSocketAddress("localhost", 51915))
       // context become(discovery())
-      self ! ConnectSoundCam("192.168.1.107", 6340)
+      self ! ConnectSoundCam("192.168.2.1", 6340)
 
     case ConnectSoundCam(ip, port) =>
       val addr = new InetSocketAddress(ip, port)
@@ -113,7 +114,6 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
     val status = buffer.getInt(4)
     val len = buffer.getInt(8)
     val header = ResponseHeader(cmd, invokeID, status, len)
-
     if(status != 0)
       client ! ErrorResponse(header, frame.drop(12))
     else{
@@ -143,6 +143,27 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       val request = createRequest(IdentificationReq.toByte, 4)
       request.putInt(8, 2)
       connection ! Write(ByteString(request))
+
+    case PrepareState(state) =>
+      log.debug(s"Send PrepareState...${state}")
+      val req = createRequest(PrepareStateReq.toByte, 4)
+      req.putInt(8, state)
+      connection ! Write(ByteString(req))
+
+    case FinishState =>
+      log.debug("Send FinishState")
+      val req = createRequest(FinishStateReq.toByte, 0)
+      connection ! Write(ByteString(req))
+
+    case StartProcedure=>
+      log.info("StartProcedure")
+      val req = createRequest(StartProcedureReq.toByte, 0)
+      connection ! Write(ByteString(req))
+
+    case StopProcedure =>
+      log.info("StopProcedure")
+      val req = createRequest(StopProcedureReq.toByte, 0)
+      connection ! Write(ByteString(req))
 
     case CommandFailed(w: Write) =>
       // O/S buffer was full

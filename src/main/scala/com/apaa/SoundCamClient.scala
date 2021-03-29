@@ -2,76 +2,103 @@ package com.apaa
 
 
 import akka.actor
+import akka.actor.ActorRef
 import akka.actor.typed.Behavior
-import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.util.ByteString
-import com.apaa.SoundCamProtocol.{IDRequest, ResponseHeader}
+import com.apaa.SoundCamProtocol.{FinishState, IDRequest, PrepareState, ResponseHeader, StartProcedure, StopProcedure}
+
+import scala.concurrent.duration.DurationInt
 
 object SoundCamClient {
-  def apply(): Behavior[Command] =
-    Behaviors.setup { context =>
-      //#create-actors
-      val system = actor.ActorSystem("ClassicSystem")
-      val protocol = system.actorOf(SoundCamProtocol.props(context.self))
-      //#create-actors
+  //#create-actors
+  val system = actor.ActorSystem("ClassicSystem")
+  //#create-actors
 
-      protocol ! DiscoverSoundCam
+  def apply(): Behavior[Command] = unconnected(None)
 
-      Behaviors.receiveMessage {
-        case DiscoverSoundCam =>
-          context.log.info("DiscoverSoundCam!")
-          protocol ! DiscoverSoundCam
-          Behaviors.same
+  def unconnected(protocolOpt: Option[ActorRef]): Behavior[Command] = Behaviors.setup { context =>
 
-        case ConnectionClosed =>
-          context.log.info("ConnectionClosed")
-          Behaviors.same
+    val protocol = protocolOpt.getOrElse({
+      system.actorOf(SoundCamProtocol.props(context.self), "SoundCamProtocol")
+    })
 
-        case SoundCamConnectFailed =>
-          context.log.error("SoundCamConnectFailed")
-          Behaviors.same
+    protocol ! DiscoverSoundCam
 
-        case SoundCamConnected =>
-          context.log.info("SoundCamConnected")
-          protocol ! IDRequest
-          Behaviors.same
+    Behaviors.receiveMessagePartial {
+      case DiscoverSoundCam =>
+        context.log.info("DiscoverSoundCam!")
+        protocol ! DiscoverSoundCam
+        Behaviors.same
 
-        case response: IdentificationResponse =>
-          context.log.info(s"serial=${response.serial}")
-          Behaviors.same
+      case SoundCamConnectFailed =>
+        context.log.error("SoundCamConnectFailed")
+        Behaviors.same
 
-        case PrepareStateResponse =>
-          Behaviors.same
+      case SoundCamConnected =>
+        context.log.info("SoundCamConnected")
+        protocol ! IDRequest
+        connected(protocol, context)
 
-        case StartProcedureResponse =>
-          Behaviors.same
-
-        case StopProcedureResponse =>
-          Behaviors.same
-
-        case FinishStateResponse=>
-          Behaviors.same
-
-        case ResetResponse =>
-          Behaviors.same
-
-        case WriteDataObjectResponse=>
-          Behaviors.same
-
-        case dt:CurrentDateTime =>
-          Behaviors.same
-        case errorResponse: ErrorResponse =>
-          Behaviors.same
-      }
-
+      case _ =>
+        Behaviors.unhandled
     }
+  }
+
+  def connected(protocol: ActorRef, context: ActorContext[Command]): Behavior[Command] = {
+    Behaviors.withTimers({
+      timers =>
+        // instead of FSM state timeout
+        //timers.startTimerWithFixedDelay(DiscoverSoundCam, 9.seconds)
+
+        Behaviors.receiveMessagePartial({
+
+          case ConnectionClosed =>
+            context.log.info("ConnectionClosed")
+            unconnected(Some(protocol))
+
+          case response: IdentificationResponse =>
+            context.log.debug(s"serial=${response.serial}")
+            protocol ! StopProcedure
+            Behaviors.same
+
+          case r@PrepareStateResponse =>
+            context.log.debug(r.toString)
+            protocol ! FinishState
+            Behaviors.same
+
+          case r@StartProcedureResponse =>
+            context.log.debug(r.toString)
+            Behaviors.same
+
+          case r@StopProcedureResponse =>
+            context.log.debug(r.toString)
+            Behaviors.same
+
+          case r@FinishStateResponse =>
+            context.log.debug(r.toString)
+            Behaviors.same
+
+          case r@ResetResponse =>
+            context.log.debug(r.toString)
+            Behaviors.same
+
+          case r@WriteDataObjectResponse =>
+            context.log.debug(r.toString)
+            Behaviors.same
+
+          case dt: CurrentDateTime =>
+            Behaviors.same
+
+          case ErrorResponse(header, data) =>
+            context.log.error(s"ErrorResponse=>status=${header.status}")
+            Behaviors.same
+        })
+
+    })
+  }
 
   sealed trait Command
-
-  final case class ErrorResponse(header: ResponseHeader, data: ByteString) extends Command
-
-  final case class IdentificationResponse(protocol: Int, deviceId: Int, deviceMode: Int,
-                                          deviceError: Int, serial: Int) extends Command
 
   final case object DiscoverSoundCam extends Command
 
@@ -79,22 +106,31 @@ object SoundCamClient {
 
   final case object SoundCamConnectFailed extends Command
 
-  final case object ConnectionClosed extends Command
+  // ConnectedCommand
+  sealed trait ConnectedCmd extends Command
+  final case class IdentificationResponse(protocol: Int, deviceId: Int, deviceMode: Int,
+                                          deviceError: Int, serial: Int) extends ConnectedCmd
 
-  final case object ResetResponse extends Command
+  final case class ErrorResponse(header: ResponseHeader, data: ByteString) extends ConnectedCmd
 
-  final case object PrepareStateResponse extends Command
+  final case object ConnectionClosed extends ConnectedCmd
 
-  final case object FinishStateResponse extends Command
+  final case object ResetResponse extends ConnectedCmd
 
-  final case object StartProcedureResponse extends Command
+  final case object PrepareStateResponse extends ConnectedCmd
 
-  final case object StopProcedureResponse extends Command
+  final case object FinishStateResponse extends ConnectedCmd
 
-  final case object WriteDataObjectResponse extends Command
+  final case object StartProcedureResponse extends ConnectedCmd
+
+  final case object StopProcedureResponse extends ConnectedCmd
+
+  final case object WriteDataObjectResponse extends ConnectedCmd
 
   //final case class CommonStatus(deviceState:Int, subState:Int) extends Command
   //final case class Distance(value:Int) extends Command
   //final case class FrequencyRange(min:Int, max:Int) extends Command
-  final case class CurrentDateTime(year:Int, month:Int, day:Int, hour:Int, min:Int, sec:Int) extends Command
+  final case class CurrentDateTime(year: Int, month: Int, day: Int, hour: Int, min: Int, sec: Int)
+    extends ConnectedCmd
+
 }
