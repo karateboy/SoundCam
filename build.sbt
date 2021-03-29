@@ -13,3 +13,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
   "org.scalatest" %% "scalatest" % "3.1.0" % Test
 )
+
+// https://mvnrepository.com/artifact/com.typesafe.akka/akka-stream
+// libraryDependencies += "com.typesafe.akka" %% "akka-stream" % akkaVersion
+
