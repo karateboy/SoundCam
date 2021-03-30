@@ -16,6 +16,7 @@ object SoundCamProtocol {
   def createRequest(cmd: Byte, len: Int) = {
     invokeID = ((invokeID + 1) & 0xFF).toByte
     val byteBuffer = ByteBuffer.allocate(8 + len)
+    byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
     byteBuffer.put(0, cmd)
     byteBuffer.put(1, invokeID)
     byteBuffer.putShort(2, 0)
@@ -45,10 +46,17 @@ object SoundCamProtocol {
   final case object IDRequest extends Command
 
   final case object Reset extends Command
-  final case class PrepareState(state:Int) extends Command
+
+  final case class PrepareState(state: Int) extends Command
+
   final case object FinishState extends Command
+
   final case object StartProcedure extends Command
+
   final case object StopProcedure extends Command
+
+  final case class ReadDataObject(dataObjectID: Seq[Int]) extends Command
+
 }
 
 class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]) extends Actor with ActorLogging {
@@ -98,11 +106,11 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       context become connected(connection, ByteString.empty)
   }
 
-  def replyResponse(cmd:Int, data: ByteBuffer, dataLen: Int)={
+  def replyResponse(cmd: Int, data: ByteBuffer, dataLen: Int) = {
     import SoundCamProtocolHelper._
-    if(handleMap.contains(cmd)){
-      handleMap(cmd)(client, cmd, data, dataLen)
-    }else
+    if (handleMap.contains(cmd)) {
+      handleMap(cmd)(client, cmd, data, log)
+    } else
       log.error(s"Unknown cmd = $cmd")
   }
 
@@ -114,14 +122,16 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
     val status = buffer.getInt(4)
     val len = buffer.getInt(8)
     val header = ResponseHeader(cmd, invokeID, status, len)
-    if(status != 0)
+    //log.info(s"header = ${header.toString}")
+    if (status != 0)
       client ! ErrorResponse(header, frame.drop(12))
-    else{
+    else {
       val data = frame.drop(12)
       assert(len == data.length)
-      val dataBuffer = data.asByteBuffer
+      val dataBuffer = data.asByteBuffer.asReadOnlyBuffer()
       dataBuffer.order(ByteOrder.LITTLE_ENDIAN)
-      replyResponse(cmd&0xff, dataBuffer, data.length)
+      replyResponse(cmd & 0xff, dataBuffer, data.length)
+
     }
   }
 
@@ -155,7 +165,7 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       val req = createRequest(FinishStateReq.toByte, 0)
       connection ! Write(ByteString(req))
 
-    case StartProcedure=>
+    case StartProcedure =>
       log.info("StartProcedure")
       val req = createRequest(StartProcedureReq.toByte, 0)
       connection ! Write(ByteString(req))
@@ -165,16 +175,23 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       val req = createRequest(StopProcedureReq.toByte, 0)
       connection ! Write(ByteString(req))
 
+    case ReadDataObject(objectIDs) =>
+      log.info(s"ReadDataObject ${objectIDs.toString()}")
+      val req = createRequest(ReadDataObjectReq.toByte, 4 + objectIDs.length * 2)
+      req.putInt(8, objectIDs.length)
+      for ((id, idx) <- objectIDs.zipWithIndex) {
+        req.putShort(12 + idx * 2, id.toShort)
+      }
+      connection ! Write(ByteString(req))
     case CommandFailed(w: Write) =>
       // O/S buffer was full
       log.error("OS buffer was full!")
 
     case Received(data) =>
-      log.debug(s"Received ${data.length}")
       val newBuffer = buffer ++ data
 
       val cmd = newBuffer(0) & 0xff
-      val (isDataFrame, headerLen, remain_offset)=
+      val (isDataFrame, headerLen, remain_offset) =
         if (cmd == DataMessage) { // DataPacket
           (true, 8, 4)
         } else {
@@ -186,10 +203,10 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
         val remain = byteBuffer.getInt(remain_offset)
         val total = remain + headerLen
-        log.debug(s"bufferLen=${newBuffer.length} remain=$remain total=$total")
+        //log.info(s"bufferLen=${newBuffer.length} total=$total")
         if (total <= newBuffer.length) {
           val frame = newBuffer.take(total)
-          if(isDataFrame)
+          if (isDataFrame)
             handleDataFrame(frame)
           else
             handleResponseFrame(frame)
@@ -200,7 +217,7 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       } else
         context become connected(connection, newBuffer)
 
-    case DataPacket(header, data)=>
+    case DataPacket(header, data) =>
 
     case cc: ConnectionClosed =>
       log.info(cc.toString)

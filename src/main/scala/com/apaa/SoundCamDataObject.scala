@@ -22,6 +22,7 @@ object DataObjectID {
   val LocalSoundTargetCoordinate = 0x13
   val MicrophoneIndex = 0x14
   val RawData = 0x19
+  val DataToSend = 0x20
   val ProductionData = 0x1A
   val MicrophoneStatus = 0x1E
   val CurrentDataTime = 0xC000
