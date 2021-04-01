@@ -63,11 +63,12 @@ class SoundCamTree {
           contentDisplay = ContentDisplay.Top
           styleClass.clear()
           styleClass += "sample-tile"
+          /*
           onAction = () => {
             SoundCamApp.splitPane.items.remove(1)
             SoundCamApp.splitPane.items.add(1,
               PageDisplayer.choosePage(groupName + " > " + sampleName))
-          }
+          }*/
         }
         EnsembleThumbNail(button)
       }

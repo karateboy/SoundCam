@@ -3,7 +3,7 @@
         logging config, see the Akka docs: https://doc.akka.io/docs/akka/2.6/typed/logging.html#logback -->
     <appender name="STDOUT" target="System.out" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>[%date{ISO8601}] [%level] [%logger] [%thread] [%X{akkaSource}] - %msg%n</pattern>
+            <pattern>[%date{ISO8601}] [%level] [%logger] [%X{akkaSource}] - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -13,8 +13,19 @@
         <appender-ref ref="STDOUT" />
     </appender>
 
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${application.home:-.}/application.log</file>
+        <encoder>
+            <pattern>[%date{ISO8601}] [%level] [%logger] [%X{akkaSource}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <appender name="ASYNCFILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE" />
+    </appender>
+
     <root level="DEBUG">
         <appender-ref ref="ASYNC"/>
+        <appender-ref ref="ASYNCFILE"/>
     </root>
 
 </configuration>
