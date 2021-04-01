@@ -6,9 +6,9 @@ import akka.actor.ActorRef
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.util.ByteString
-import com.apaa.SoundCamProtocol.{FinishState, IDRequest, PrepareState, ReadDataObject, ResponseHeader, StartProcedure, StopProcedure}
+import com.apaa.SoundCamProtocol.{FinishState, IDRequest, ReadDataObject, ResponseHeader}
 
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.ByteBuffer
 import scala.concurrent.duration.DurationInt
 
 object SoundCamClient {
