@@ -46,7 +46,7 @@ object SoundCamApp extends JFXApp3 {
 
   def centerPane_=(newValue: Node): Unit = _centerPane = newValue
 
-  private lazy val splitPane: SplitPane = new SplitPane {
+  private[apaa] lazy val splitPane: SplitPane = new SplitPane {
     dividerPositions = 0
     id = "page-splitpane"
     items.addAll(scrollPane, centerPane)
