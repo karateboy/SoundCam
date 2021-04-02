@@ -33,7 +33,7 @@ import scalafx.scene.layout.HBox
 import scalafx.scene.paint.{Color, Paint}
 import scalafx.scene.shape.Polygon
 
-import scala.language.implicitConversions
+
 
 class EnsemblePolygon extends EnsembleExample {
 

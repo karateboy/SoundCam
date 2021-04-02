@@ -5,7 +5,6 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.io.Tcp._
 import akka.io.{IO, Tcp, Udp}
 import akka.util.ByteString
-import com.apaa.SoundCamProtocolHelper.identificationRespHandler
 
 import java.net.InetSocketAddress
 import java.nio.{ByteBuffer, ByteOrder}

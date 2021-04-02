@@ -32,7 +32,7 @@ import scalafx.geometry.Insets
 import scalafx.scene.control.SplitPane
 import scalafx.scene.layout.{Region, StackPane}
 
-import scala.language.implicitConversions
+
 
 /**
   * A sample that demonstrates styling a hidden split pane with CSS.

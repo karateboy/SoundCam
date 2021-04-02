@@ -33,7 +33,7 @@ import scalafx.scene.control.Label
 import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.layout.FlowPane
 
-import scala.language.implicitConversions
+
 
 /**
   * An example of a FlowPane layout.

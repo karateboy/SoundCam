@@ -1,79 +1,52 @@
 package com.apaa
 
-import scalafx.ensemble.{Ensemble, EnsembleThumbNail, EnsembleTree}
-import scalafx.ensemble.EnsembleTree.{exampleListURL, getClass}
-import scalafx.ensemble.commons.{ExampleInfo, PageDisplayer, SortUtils}
-import scalafx.scene.control.{Button, ContentDisplay, TreeItem}
-import scalafx.scene.image.{Image, ImageView}
+import com.apaa.pages.ConfigurePage
+import scalafx.ensemble.commons.DisplayablePage
+import scalafx.ensemble.stage.DashboardPage
+import scalafx.scene.control._
 
-import java.io.IOException
-import scala.collection.immutable.TreeMap
 
-class SoundCamTree {
-  private val exampleListPath = ExampleInfo.examplesDir + "example.tree"
-  private val exampleListURL = getClass.getResource(exampleListPath)
+case class ThumbNail(button: Button)
 
-  def create(): EnsembleTree = new EnsembleTree(createTree(), createThumbnails())
+case class PageItem(label: String, page: Option[DisplayablePage]) {
+  override def toString: String = label
+}
 
-  /**
-   * build a map by iterating through the examples folder.
-   * This is used in UI
-   */
-  private def createTree(): Map[String, List[TreeItem[String]]] = {
-    val pairs = for ((dirName, examples) <- loadExampleNames()) yield {
-      val leaves = for (leafName <- examples) yield {
-        new TreeItem(ExampleInfo.formatAddSpaces(leafName))
-      }
-      dirName -> leaves.toList.sortWith(SortUtils.treeItemSort)
-    }
-    TreeMap(pairs.toIndexedSeq: _*)
+
+object SortUtils {
+
+  def treeItemSort: (TreeItem[String], TreeItem[String]) => Boolean = (ti: TreeItem[String], t2: TreeItem[String]) =>
+    compare(ti.value(), t2.value())
+
+  def thumbNailsSort: (ThumbNail, ThumbNail) => Boolean = (t1: ThumbNail, t2: ThumbNail) =>
+    compare(t1.button.text(), t2.button.text())
+
+  def sortKeys: (String, String) => Boolean = (x: String, y: String) => compare(x, y)
+
+  private def compare = (x: String, y: String) =>
+    x.compareToIgnoreCase(y) < 0
+}
+
+object SoundCamTree {
+  val dashboardPage = new DashboardPage()
+  val rootLabel = "聲音相機"
+  val configurePage = new ConfigurePage()
+
+  val tree: List[TreeItem[PageItem]] = List(
+    new TreeItem[PageItem](PageItem(configurePage.getTitle, Some(configurePage.getDisplayablePage))) {
+      children = List.empty[TreeItem[PageItem]]
+    },
+    new TreeItem[PageItem](PageItem("操作", None)) {
+      children = List.empty[TreeItem[PageItem]]
+    },
+    new TreeItem[PageItem](PageItem("報表", None)) {
+      children = List.empty[TreeItem[PageItem]]
+    },
+  )
+
+  val root: TreeItem[PageItem] = new TreeItem[PageItem](PageItem(rootLabel, Some(dashboardPage))) {
+    expanded = true
+    children = tree
   }
 
-  private def loadExampleNames(): Array[(String, Array[String])] = {
-
-    require(exampleListURL != null, "Failed to locate resource in classpath: " + exampleListPath)
-
-    val lines = scala.io.Source.fromURL(exampleListURL).getLines()
-
-    for (line <- lines.toArray) yield {
-      val v = line.split("->")
-      assert(v.length == 2)
-      val dirName = v.head.trim
-      val examples = v(1).split(",").map(_.trim())
-      dirName -> examples
-    }
-  }
-
-  private def createThumbnails() = {
-    val pairs = for ((dirName, examples) <- loadExampleNames()) yield {
-      val groupName = dirName
-      val thumbs = for (leafName <- examples) yield {
-        val sampleName = ExampleInfo.formatAddSpaces(leafName)
-        val img = new ImageView {
-          val filePath = ExampleInfo.thumbnailPath(leafName, groupName)
-          val inputStream = this.getClass.getResourceAsStream(filePath)
-          if (inputStream == null) {
-            throw new IOException("Unable to locate resource: " + filePath)
-          }
-          image = new Image(inputStream)
-        }
-        val button = new Button(sampleName, img) {
-          prefWidth = 140
-          prefHeight = 145
-          contentDisplay = ContentDisplay.Top
-          styleClass.clear()
-          styleClass += "sample-tile"
-          /*
-          onAction = () => {
-            SoundCamApp.splitPane.items.remove(1)
-            SoundCamApp.splitPane.items.add(1,
-              PageDisplayer.choosePage(groupName + " > " + sampleName))
-          }*/
-        }
-        EnsembleThumbNail(button)
-      }
-      dirName.capitalize -> thumbs.toList.sortWith(SortUtils.thumbNailsSort)
-    }
-    TreeMap(pairs.toIndexedSeq: _*)
-  }
 }

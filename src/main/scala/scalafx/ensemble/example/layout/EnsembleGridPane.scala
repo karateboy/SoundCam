@@ -34,7 +34,7 @@ import scalafx.scene.control.{Button, Label, Separator, TextField}
 import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.layout._
 
-import scala.language.implicitConversions
+
 
 /**
   * An example of a GridPane layout. There is more than one approach to using a

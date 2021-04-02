@@ -403,6 +403,8 @@
 #page-tree .tree-cell {
 	-fx-indent: 10;
 	-fx-background-color: transparent;
+	-fx-font-weight: bold;
+	-fx-font-size: 1.5em;
 }
 
 #page-tree .tree-cell:odd {

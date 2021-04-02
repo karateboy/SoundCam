@@ -7,8 +7,8 @@ import org.scalafx.extras.{onFXAndWait, showException}
 import scalafx.Includes._
 import scalafx.application.JFXApp3
 import scalafx.application.JFXApp3.PrimaryStage
-import scalafx.ensemble.EnsembleTree
-import scalafx.ensemble.commons.PageDisplayer
+import scalafx.ensemble.commons.DisplayablePage
+import scalafx.ensemble.stage.DashboardPage
 import scalafx.geometry.Insets
 import scalafx.scene.control._
 import scalafx.scene.image.{Image, ImageView}
@@ -17,7 +17,6 @@ import scalafx.scene.{Node, Scene}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.language.implicitConversions
 
 //#main-class
 object SoundCamApp extends JFXApp3 {
@@ -61,7 +60,7 @@ object SoundCamApp extends JFXApp3 {
     content = controlsView
   }
 
-  private lazy val controlsView: TreeView[String] = new TreeView[String]() {
+  private lazy val controlsView: TreeView[PageItem] = new TreeView[PageItem]() {
     minWidth = 200
     maxWidth = 200
     editable = true
@@ -69,10 +68,7 @@ object SoundCamApp extends JFXApp3 {
     id = "page-tree"
   }
 
-  private[apaa] lazy val rootTreeItem: TreeItem[String] = new TreeItem[String]("聲音相機") {
-    expanded = true
-    children = EnsembleTree.create().getTree
-  }
+  private[apaa] lazy val rootTreeItem: TreeItem[PageItem] = SoundCamTree.root
 
   override def start(): Unit = {
 
@@ -81,22 +77,26 @@ object SoundCamApp extends JFXApp3 {
     //
     // Example selection tree
     //
-    centerPane = PageDisplayer.choosePage("dashBoard")
+    val dashboardPage = new DashboardPage()
+    centerPane = PageDisplayer.showPage(dashboardPage)
 
 
     controlsView.selectionModel().setSelectionMode(SelectionMode.Single)
     controlsView.selectionModel().selectedItemProperty.onChange {
       (_, _, newItem) => {
-        val pageCode = (newItem.isLeaf, Option(newItem.getParent)) match {
-          case (true, Some(parent)) => parent.getValue.toLowerCase + " > " + newItem.getValue
-          case (false, Some(_)) => "dashBoard - " + newItem.getValue
-          case (_, _) => "dashBoard"
+
+        val pageOpt: Option[DisplayablePage] = (newItem.isLeaf, Option(newItem.getParent)) match {
+          case (true, Some(_)) => newItem.getValue.page
+          case (false, Some(_)) => Some(dashboardPage)
+          case (_, _) => Some(dashboardPage)
         }
-        centerPane = PageDisplayer.choosePage(pageCode)
-        splitPane.items.remove(1)
-        splitPane.items.add(1, centerPane)
-        // Update layout after updating content
-        splitPane.autosize()
+        for(page <-pageOpt){
+          centerPane = PageDisplayer.showPage(page)
+          splitPane.items.remove(1)
+          splitPane.items.add(1, centerPane)
+          // Update layout after updating content
+          splitPane.autosize()
+        }
       }
     }
 

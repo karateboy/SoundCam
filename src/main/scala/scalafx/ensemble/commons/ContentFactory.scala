@@ -39,7 +39,6 @@ import scalafx.scene.web.WebView
 import scalafx.stage.DirectoryChooser
 
 import java.util.Locale
-import scala.language.implicitConversions
 
 /**
   * populates the tabbed content by loading

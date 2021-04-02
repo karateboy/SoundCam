@@ -1,7 +1,6 @@
 package com.apaa
 
 import akka.event.LoggingAdapter
-import akka.util.ByteString
 import com.apaa.SoundCamClient._
 
 import java.nio.ByteBuffer

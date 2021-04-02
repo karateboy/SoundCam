@@ -38,7 +38,7 @@ import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.layout._
 import scalafx.scene.{Node, Scene}
 
-import scala.language.implicitConversions
+
 
 /** The main ScalaFX Ensemble application object. */
 object Ensemble extends JFXApp3 {

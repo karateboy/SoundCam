@@ -34,7 +34,7 @@ import scalafx.geometry.Insets
 import scalafx.scene.control.{ListView, SelectionMode}
 import scalafx.scene.layout.StackPane
 
-import scala.language.implicitConversions
+
 
 class EnsembleSimpleListView extends EnsembleExample {
 
