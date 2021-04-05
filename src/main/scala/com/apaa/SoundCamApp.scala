@@ -70,7 +70,8 @@ object SoundCamApp extends JFXApp3 {
   def soundCamClient = _soundCamClient
 
   override def start(): Unit = {
-
+    import org.opencv.core.Core
+    System.loadLibrary(Core.NATIVE_LIBRARY_NAME)
     readConfig()
 
     initActorRef()
