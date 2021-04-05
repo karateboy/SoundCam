@@ -6,6 +6,7 @@ import com.apaa.{DataObjectID, DeviceState, SoundCamApp, SoundCamClient}
 import org.slf4j.LoggerFactory
 import scalafx.scene.Node
 import scalafx.scene.control.Button
+import scalafx.scene.image.ImageView
 import scalafx.scene.layout.{HBox, VBox}
 
 import java.time.LocalDateTime
@@ -46,7 +47,9 @@ class OperationPage extends ContentPage {
       }
     }
     val toolbar = new HBox(btnPrepare, btnStart, btnStop)
-    val vbox = new VBox(toolbar)
+    val imageView = new ImageView()
+    val vbox = new VBox(toolbar, imageView)
+
     vbox
   }
 
