@@ -1,8 +1,11 @@
 //#full-example
 package com.apaa
 
+import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorSystem, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.util.Timeout
+import com.apaa.SoundCamApp.soundCamApp.log
 import org.scalafx.extras.{onFXAndWait, showException}
 import scalafx.Includes._
 import scalafx.application.JFXApp3
@@ -15,42 +18,18 @@ import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.layout._
 import scalafx.scene.{Node, Scene}
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 
 //#main-class
 object SoundCamApp extends JFXApp3 {
-
-  sealed trait Command
-
-  case object Stop extends Command
-
-  def apply(): Behavior[Command] =
-    Behaviors.setup {
-      context =>
-        context.spawn(SoundCamClient(), "soundCamClient")
-        Behaviors.receiveMessage({
-          case Stop =>
-            Behaviors.stopped
-        })
-    }
-
-  val soundCamApp: ActorSystem[SoundCamApp.Command] = ActorSystem(SoundCamApp(), "SoundCamApp")
-
-  private val Title = "CAE聲音相機"
-
-  private var _centerPane: Node = _
-
-  def centerPane: Node = _centerPane
-
-  def centerPane_=(newValue: Node): Unit = _centerPane = newValue
-
+  // #ScalaFX UI
   private[apaa] lazy val splitPane: SplitPane = new SplitPane {
     dividerPositions = 0
     id = "page-splitpane"
     items.addAll(scrollPane, centerPane)
   }
-
   private lazy val scrollPane: ScrollPane = new ScrollPane {
     minWidth = 200
     maxWidth = 200
@@ -59,7 +38,9 @@ object SoundCamApp extends JFXApp3 {
     id = "page-tree"
     content = controlsView
   }
-
+  implicit val soundCamApp: ActorSystem[SoundCamApp.Command] = ActorSystem(SoundCamApp(), "SoundCamApp")
+  implicit val timeout: Timeout = 3.seconds
+  implicit val ec = soundCamApp.executionContext
   private lazy val controlsView: TreeView[PageItem] = new TreeView[PageItem]() {
     minWidth = 200
     maxWidth = 200
@@ -67,10 +48,32 @@ object SoundCamApp extends JFXApp3 {
     root = rootTreeItem
     id = "page-tree"
   }
-
   private[apaa] lazy val rootTreeItem: TreeItem[PageItem] = SoundCamTree.root
+  private val Title = "CAE聲音相機"
+  private var _soundCamClient: ActorRef[SoundCamClient.Command] = _
+  private var _centerPane: Node = _
+
+  // #actor
+  def apply(): Behavior[Command] =
+    Behaviors.setup {
+      context =>
+        val client = context.spawn(SoundCamClient(), "soundCamClient")
+        Behaviors.receiveMessage({
+          case GetClient(replyTo) =>
+            replyTo ! Client(client)
+            Behaviors.same
+          case Stop =>
+            Behaviors.stopped
+        })
+    }
+
+  def soundCamClient = _soundCamClient
 
   override def start(): Unit = {
+
+    readConfig()
+
+    initActorRef()
 
     setupUncaughtExceptionHandling()
 
@@ -90,7 +93,7 @@ object SoundCamApp extends JFXApp3 {
           case (false, Some(_)) => Some(dashboardPage)
           case (_, _) => Some(dashboardPage)
         }
-        for(page <-pageOpt){
+        for (page <- pageOpt) {
           centerPane = PageDisplayer.showPage(page)
           splitPane.items.remove(1)
           splitPane.items.add(1, centerPane)
@@ -141,6 +144,22 @@ object SoundCamApp extends JFXApp3 {
     }
   }
 
+  def initActorRef() = {
+    val result: Future[SoundCamApp.Reply] = soundCamApp.ask(ref => SoundCamApp.GetClient(ref))
+    result.onComplete({
+      case Success(SoundCamApp.Client(client)) => _soundCamClient = client
+      case Failure(exception) => log.error("fail to get client ref", exception)
+    })
+  }
+
+  def readConfig () = {
+    val config = com.typesafe.config.ConfigFactory.load()
+
+  }
+  def centerPane: Node = _centerPane
+
+  def centerPane_=(newValue: Node): Unit = _centerPane = newValue
+
   def setupUncaughtExceptionHandling(): Unit = {
     Thread.setDefaultUncaughtExceptionHandler(
       (t: Thread, e: Throwable) => {
@@ -159,9 +178,17 @@ object SoundCamApp extends JFXApp3 {
   }
 
   override def stopApp(): Unit = {
-    println("SoundCam stop!")
     soundCamApp.terminate()
-    Await.ready(soundCamApp.whenTerminated, Duration.Inf)
-    println("actorSystem shutdown!")
   }
+
+  sealed trait Command
+
+  sealed trait Reply
+
+  case class GetClient(replyTo: ActorRef[Reply]) extends Command
+
+  final case class Client(client: ActorRef[SoundCamClient.Command]) extends Reply
+
+  case object Stop extends Command
+
 }

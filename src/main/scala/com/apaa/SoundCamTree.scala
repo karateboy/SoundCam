@@ -1,6 +1,6 @@
 package com.apaa
 
-import com.apaa.pages.ConfigurePage
+import com.apaa.pages.{ConfigurePage, OperationPage}
 import scalafx.ensemble.commons.DisplayablePage
 import scalafx.ensemble.stage.DashboardPage
 import scalafx.scene.control._
@@ -31,12 +31,12 @@ object SoundCamTree {
   val dashboardPage = new DashboardPage()
   val rootLabel = "聲音相機"
   val configurePage = new ConfigurePage()
-
+  val operationPage = new OperationPage()
   val tree: List[TreeItem[PageItem]] = List(
     new TreeItem[PageItem](PageItem(configurePage.getTitle, Some(configurePage.getDisplayablePage))) {
       children = List.empty[TreeItem[PageItem]]
     },
-    new TreeItem[PageItem](PageItem("操作", None)) {
+    new TreeItem[PageItem](PageItem(operationPage.getTitle, Some(operationPage.getDisplayablePage))) {
       children = List.empty[TreeItem[PageItem]]
     },
     new TreeItem[PageItem](PageItem("報表", None)) {

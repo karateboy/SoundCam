@@ -39,7 +39,7 @@ lazy val osName = System.getProperty("os.name") match {
   case _ => throw new Exception("Unknown platform!")
 }
 
-libraryDependencies ++= javaFXModules.map( m=>
+libraryDependencies ++= javaFXModules.map(m =>
   "org.openjfx" % s"javafx-$m" % "15.0.1" classifier osName
 )
 
@@ -79,7 +79,7 @@ resourceGenerators in Compile += Def.task {
   /** Create file representing names and directories for all availabe examples.
    * It will be loaded by the application at runtime and used to popolate example tree.
    */
-  def generateExampleTreeFile(inSourceDir : File,
+  def generateExampleTreeFile(inSourceDir: File,
                               outSourceDir: File,
                               templatePath: String): Seq[File] = {
     val exampleDirs = loadExampleNames(inSourceDir)
@@ -96,6 +96,20 @@ resourceGenerators in Compile += Def.task {
     "/scalafx/ensemble/example/example.tree"
   )
 }.taskValue
+
+cleanFiles := (baseDirectory.value / "application.log") +: cleanFiles.value
+
+assemblyMergeStrategy in assembly := {
+  case PathList("javax", "servlet", xs @ _*)         => MergeStrategy.first
+  case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
+  case "application.conf"                            => MergeStrategy.concat
+  case "module-info.class"                                => MergeStrategy.discard
+  case x =>
+    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    oldStrategy(x)
+}
+
+//unmanagedJars in Runtime ++= Seq(new java.io.File(".")).classpath
 
 mainClass in Compile := Some("com.apaa.SoundCamApp")
 

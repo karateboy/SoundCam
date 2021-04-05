@@ -6,8 +6,8 @@ import javafx.util.converter.IntegerStringConverter
 import scalafx.geometry.Pos.Center
 import scalafx.scene.Node
 import scalafx.scene.control.{Button, Label, TextField, TextFormatter}
-import scalafx.scene.layout.{AnchorPane, GridPane, VBox}
-import scalafx.stage.{DirectoryChooser, FileChooser}
+import scalafx.scene.layout.GridPane
+import scalafx.stage.DirectoryChooser
 import scalafx.util.converter.DoubleStringConverter
 
 import java.io.File

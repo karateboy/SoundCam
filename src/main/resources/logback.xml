@@ -23,9 +23,14 @@
         <appender-ref ref="FILE" />
     </appender>
 
+    <logger name="com.apaa.SoundCamProtocolHelper">
+        <level value="INFO" />
+        <appender-ref ref="console" />
+    </logger>
+
     <root level="DEBUG">
         <appender-ref ref="ASYNC"/>
-        <appender-ref ref="ASYNCFILE"/>
+<!--        <appender-ref ref="ASYNCFILE"/>-->
     </root>
 
 </configuration>
