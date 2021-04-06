@@ -23,20 +23,26 @@ object ContentFactory {
       styleClass += "page-header"
     }
 
+
     val sampleArea = new StackPane {
       children = sampleNode
-      vgrow = Priority.Sometimes
+      //vgrow = Priority.Sometimes
+      vgrow = Priority.Always
     }
+
 
     // ScrollPane is applied for borderPane that contains samples
     new DisplayablePage {
       override def getPage: Node = new ScrollPane {
         fitToWidth = true
         fitToHeight = true
+
+
         content = new VBox(8) {
           children ++= Seq(header, sampleArea)
           styleClass += "sample-page"
         }
+
         styleClass += "noborder-scroll-pane"
       }
     }

@@ -178,7 +178,7 @@ object SoundCamProtocolHelper {
             val distance = data.getInt(20)
             val acousticData = data.slice(24, 3072 * 4).order(ByteOrder.LITTLE_ENDIAN)
               .asFloatBuffer()
-            logger.info(s"acoustic remaining=${acousticData.remaining()} isDirect=${acousticData.isDirect}")
+            logger.debug(s"acoustic remaining=${acousticData.remaining()} isDirect=${acousticData.isDirect}")
             val floatArray = new Array[Float](3072)
             acousticData.get(floatArray)
             client ! AcousticImage(timestamp, freqMin, freqMax, distance, floatArray)

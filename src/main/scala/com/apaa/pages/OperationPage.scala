@@ -2,12 +2,13 @@ package com.apaa.pages
 
 import akka.actor.typed.ActorRef
 import com.apaa.SoundCamClient._
-import com.apaa.{DataObjectID, DeviceState, SoundCamApp, SoundCamClient}
+import com.apaa.{DeviceState, SoundCamApp, SoundCamClient, SoundCamInfoHandler}
 import org.slf4j.LoggerFactory
+import scalafx.geometry.Insets
 import scalafx.scene.Node
 import scalafx.scene.control.Button
-import scalafx.scene.image.ImageView
-import scalafx.scene.layout.{HBox, VBox}
+import scalafx.scene.image.{Image, ImageView}
+import scalafx.scene.layout.{BorderPane, HBox}
 
 import java.time.LocalDateTime
 
@@ -25,7 +26,7 @@ class OperationPage extends ContentPage {
         val dataObjects = Seq(
           Distance(100),
           FrequencyRange(100, 24000),
-          CameraResolution(320, 240),
+          CameraResolution(640, 480),
           VideoFrameRate(30),
           AcousticFrameRate(30),
           currentDateTime
@@ -47,10 +48,14 @@ class OperationPage extends ContentPage {
       }
     }
     val toolbar = new HBox(btnPrepare, btnStart, btnStop)
+    toolbar.setPadding(Insets(10))
     val imageView = new ImageView()
-    val vbox = new VBox(toolbar, imageView)
-
-    vbox
+    imageView.image = new Image("/scalafx/ensemble/images/boat.jpg")
+    SoundCamInfoHandler.setVideoSink(imageView)
+    val borderPane = new BorderPane()
+    borderPane.setTop(toolbar)
+    borderPane.setCenter(imageView)
+    borderPane
   }
 
   override def getTitle: String = "操作"

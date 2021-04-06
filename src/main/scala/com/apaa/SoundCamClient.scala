@@ -8,6 +8,7 @@ import akka.actor.typed.{Behavior, PostStop}
 import akka.util.ByteString
 import com.apaa.SoundCamProtocol.ResponseHeader
 
+import java.net.InetAddress
 import java.nio.ByteBuffer
 import scala.concurrent.duration.DurationInt
 
@@ -43,7 +44,7 @@ object SoundCamClient {
       case r@SoundCamConnected =>
         context.log.debug(r.toString)
         protocol ! IDRequest
-        connected(protocol, context, 0, 0)
+        connected(protocol, context, DeviceState.Idle, DeviceSubState.Idle)
 
       case _ =>
         Behaviors.unhandled
@@ -55,12 +56,15 @@ object SoundCamClient {
     }
   }
 
-  def connected(protocol: ActorRef, context: ActorContext[Command], deviceState: Int, subState: Int): Behavior[Command] = {
+  def connected(protocol: ActorRef, context: ActorContext[Command],
+                deviceState: Int, subState: Int): Behavior[Command] = {
     Behaviors.withTimers({
       timers =>
         // instead of FSM state timeout
-        if (deviceState != DeviceState.Measuring)
+        if (deviceState != DeviceState.Measuring) {
+          context.log.info("start timer...")
           timers.startTimerWithFixedDelay(context.self, ReadDataObject(Seq(DataObjectID.CommonStatus)), 9.seconds)
+        }
 
         def connectionCmdHandler(cmd: ConnectionCommand): Behavior[Command] = {
           cmd match {
@@ -120,11 +124,12 @@ object SoundCamClient {
 
             case r@VideoData(timestamp, h, v, data)=>
               context.log.debug(r.toString)
+              SoundCamInfoHandler.receive(r)
               Behaviors.same
 
             case r@(AcousticImage(_, _, _, _, _) | AudioData(_, _, _, _, _, _, _, _, _) | DataToSend(_, _, _, _, _, _, _, _, _, _)
                  | Spectrum(_, _, _, _, _, _, _)) =>
-              context.log.debug(r.toString)
+              context.log.info(r.toString)
               Behaviors.same
 
             case dt: CurrentDateTime =>
@@ -132,17 +137,25 @@ object SoundCamClient {
           }
         }
 
+
         Behaviors.receiveMessage[Command]({
           // Connection
           case cmd: ConnectionCommand =>
             connectionCmdHandler(cmd)
+
           //Request
           case req@(IDRequest | Reset | PrepareState(_)
-                    | StartProcedure | StopProcedure | ReadDataObject(_)
+                    | StopProcedure | ReadDataObject(_)
                     | DiscoverSoundCam | FinishState |
                     WriteDataObject(_)) =>
             protocol ! req
             Behaviors.same
+
+          case req@StartProcedure =>
+            timers.cancelAll()
+            protocol ! req
+            Behaviors.same
+
 
           // Response
           case resp: IdentificationResponse =>

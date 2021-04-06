@@ -112,4 +112,5 @@ assemblyMergeStrategy in assembly := {
 //unmanagedJars in Runtime ++= Seq(new java.io.File(".")).classpath
 
 mainClass in Compile := Some("com.apaa.SoundCamApp")
+javaOptions in run += "-Djava.library.path=lib"
 

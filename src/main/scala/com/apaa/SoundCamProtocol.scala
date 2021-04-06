@@ -9,7 +9,7 @@ import com.apaa.SoundCamClient._
 import com.apaa.SoundCamProtocolHelper.WriteDataObjectReq
 import org.slf4j.LoggerFactory
 
-import java.net.InetSocketAddress
+import java.net.{InetAddress, InetSocketAddress}
 import java.nio.{ByteBuffer, ByteOrder}
 
 object DeviceState {
@@ -145,6 +145,7 @@ object SoundCamProtocol {
 
   final case object FindSoundCam extends Command
 
+  final case class ClientIP(addr:String) extends Command
 }
 
 class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]) extends Actor with ActorLogging {
@@ -155,30 +156,19 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
   log.info("SoundCamProtocol online")
   implicit val sys = context.system.classicSystem
   val tcpManager: ActorRef = IO(Tcp)
-  val udpManager = IO(Udp)
-  var client_ip = "192.168.1.107"
+  var client_ip = "192.168.2.1"
 
-  def discovery(udpSender: ActorRef): Receive = {
-    case DiscoverSoundCam =>
-      val addr = new InetSocketAddress("255.255.255.255", 51914)
-      udpSender ! Udp.Send(ByteString("Hello AKAMs send your ID"), addr)
-
-    case Udp.Received(data, remote) =>
-      log.info(data.toString())
-
-    case Udp.Unbind => udpSender ! Udp.Unbind
-  }
+  val finder = context.actorOf(SoundCamFinder.props(self), "finder")
 
   def unconnected(): Receive = {
-    case Udp.Bound(local) =>
-      log.info("Udp bound.")
-      context become discovery(sender())
-      self ! DiscoverSoundCam
-
     case DiscoverSoundCam =>
       //udpManager ! Udp.Bind(self, new InetSocketAddress("localhost", 51915))
       // context become(discovery())
-      self ! ConnectSoundCam(client_ip, 6340)
+      finder ! DiscoverSoundCam
+      //self ! ConnectSoundCam(client_ip, 6340)
+
+    case ClientIP(addr) =>
+      self ! ConnectSoundCam(addr, 6340)
 
     case ConnectSoundCam(ip, port) =>
       val addr = new InetSocketAddress(ip, port)
@@ -194,7 +184,7 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       context become connected(connection, ByteString.empty)
   }
 
-  def replyResponse(cmd: Int, data: ByteBuffer, dataLen: Int) = {
+  def replyResponse(cmd: Int, data: ByteBuffer) = {
     import SoundCamProtocolHelper._
     if (handleMap.contains(cmd)) {
       handleMap(cmd)(client, cmd, data)
@@ -216,9 +206,9 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
     else {
       val data = frame.drop(12)
       assert(len == data.length)
-      val dataBuffer = data.asByteBuffer.asReadOnlyBuffer()
+      val dataBuffer = data.toByteBuffer
       dataBuffer.order(ByteOrder.LITTLE_ENDIAN)
-      replyResponse(cmd & 0xff, dataBuffer, data.length)
+      replyResponse(cmd & 0xff, dataBuffer)
 
     }
   }
@@ -232,9 +222,9 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
 
     val data = frame.drop(8)
     assert(len == data.length)
-    val dataBuffer = data.asByteBuffer.asReadOnlyBuffer()
+    val dataBuffer = data.toByteBuffer
     dataBuffer.order(ByteOrder.LITTLE_ENDIAN)
-    replyResponse(cmd & 0xff, dataBuffer, data.length)
+    replyResponse(cmd & 0xff, dataBuffer)
   }
 
   def connected(connection: ActorRef, buffer: ByteString): Receive = {
@@ -266,7 +256,6 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       connection ! Write(ByteString(req))
 
     case ReadDataObject(objectIDs) =>
-      log.info(s"ReadDataObject ${objectIDs.toString()}")
       val req = createRequest(ReadDataObjectReq.toByte, 4 + objectIDs.length * 2)
       req.putInt(8, objectIDs.length)
       for ((id, idx) <- objectIDs.zipWithIndex) {
