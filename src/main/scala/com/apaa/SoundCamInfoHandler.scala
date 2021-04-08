@@ -10,6 +10,9 @@ import scalafx.scene.image.{Image, ImageView}
 import java.io.ByteArrayInputStream
 
 object SoundCamInfoHandler {
+  case class Measurement(timestamp:Long,
+                         video:Option[VideoData], acoustic:Option[AcousticImage],
+                         spectrum: Option[Spectrum], audioData: Option[AudioData])
   //val capture = new VideoCapture()
   //capture.open(0)
 

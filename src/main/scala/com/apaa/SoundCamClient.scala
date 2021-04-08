@@ -8,7 +8,6 @@ import akka.actor.typed.{Behavior, PostStop}
 import akka.util.ByteString
 import com.apaa.SoundCamProtocol.ResponseHeader
 
-import java.net.InetAddress
 import java.nio.ByteBuffer
 import scala.concurrent.duration.DurationInt
 

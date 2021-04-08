@@ -67,15 +67,11 @@ class SoundCamFinder(client:ActorRef) extends Actor with ActorLogging {
     addressList.flatten
   }
 
-  log.info(listBroadcastAddresses.toList.toString())
-
   def bound(socketList: Seq[ActorRef]): Receive = {
     case DiscoverSoundCam =>
       for(inetaddr <- listBroadcastAddresses){
         log.info(s"send to $inetaddr")
-        val addr = new InetSocketAddress(inetaddr, 51914)
         broadcast("Hello AKAMs send your ID", inetaddr, 51914)
-        //socket ! Udp.Send(ByteString("Hello AKAMs send your ID"), addr)
       }
 
     case Udp.Received(data, remote) =>
@@ -87,7 +83,6 @@ class SoundCamFinder(client:ActorRef) extends Actor with ActorLogging {
       log.info(ipstr)
 
       client ! com.apaa.SoundCamProtocol.ClientIP(ipstr)
-      //log.info(data.toString())
 
     case Udp.Unbind =>
       for(socket <- socketList)
