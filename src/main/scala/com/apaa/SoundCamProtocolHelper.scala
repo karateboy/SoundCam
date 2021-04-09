@@ -1,5 +1,6 @@
 package com.apaa
 
+import akka.util.ByteString
 import com.apaa.SoundCamClient._
 import org.slf4j.LoggerFactory
 
@@ -152,7 +153,7 @@ object SoundCamProtocolHelper {
             client ! CameraLight(on != 0)
             8
           case DataObjectID.MicrophonePosition =>
-            val len = data.getInt(4)
+            //val len = data.getInt(4)
             val count = data.getInt(8)
             12 + 24 * count
           case DataObjectID.MicrophoneWeighting =>
@@ -168,7 +169,7 @@ object SoundCamProtocolHelper {
             val h = data.getShort(16)
             val v = data.getShort(18)
             val video = data.slice(20, len - 12)
-            client ! VideoData(timestamp, h, v, video)
+            client ! VideoData(timestamp, h, v, ByteString(video))
             headerLen + len
           case DataObjectID.AcousticVideoData =>
             val len = data.getInt(4)
@@ -178,9 +179,10 @@ object SoundCamProtocolHelper {
             val distance = data.getInt(20)
             val acousticData = data.slice(24, 3072 * 4).order(ByteOrder.LITTLE_ENDIAN)
               .asFloatBuffer()
-            logger.debug(s"acoustic remaining=${acousticData.remaining()} isDirect=${acousticData.isDirect}")
+            val bs = ByteString(data.slice(24, 3072 * 4).order(ByteOrder.LITTLE_ENDIAN))
+
             val floatArray = new Array[Float](3072)
-            acousticData.get(floatArray)
+            acousticData.get(floatArray, 0, 3072)
             client ! AcousticImage(timestamp, freqMin, freqMax, distance, floatArray)
             headerLen + len
           case DataObjectID.AudioData =>

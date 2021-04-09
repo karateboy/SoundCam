@@ -153,10 +153,11 @@ object SoundCamApp extends JFXApp3 {
     })
   }
 
-  def readConfig () = {
-    val config = com.typesafe.config.ConfigFactory.load()
 
+  def readConfig () = {
+    //val config = com.typesafe.config.ConfigFactory.load()
   }
+
   def centerPane: Node = _centerPane
 
   def centerPane_=(newValue: Node): Unit = _centerPane = newValue

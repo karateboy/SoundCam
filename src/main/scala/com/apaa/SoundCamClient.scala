@@ -8,7 +8,7 @@ import akka.actor.typed.{Behavior, PostStop}
 import akka.util.ByteString
 import com.apaa.SoundCamProtocol.ResponseHeader
 
-import java.nio.ByteBuffer
+import java.time.LocalDateTime
 import scala.concurrent.duration.DurationInt
 
 object SoundCamClient {
@@ -26,7 +26,7 @@ object SoundCamClient {
       system.actorOf(SoundCamProtocol.props(context.self), "SoundCamProtocol")
     })
 
-    val config = com.typesafe.config.ConfigFactory.defaultApplication()
+    //val config = com.typesafe.config.ConfigFactory.defaultApplication()
     //config.get
     protocol ! DiscoverSoundCam
 
@@ -55,14 +55,20 @@ object SoundCamClient {
     }
   }
 
+  case object CommonStatusTimer
+
   def connected(protocol: ActorRef, context: ActorContext[Command],
                 deviceState: Int, subState: Int): Behavior[Command] = {
     Behaviors.withTimers({
       timers =>
         // instead of FSM state timeout
-        if (deviceState != DeviceState.Measuring) {
-          context.log.info("start timer...")
-          timers.startTimerWithFixedDelay(context.self, ReadDataObject(Seq(DataObjectID.CommonStatus)), 9.seconds)
+        if (deviceState == DeviceState.Measuring && subState == DeviceSubState.Running) {
+          timers.cancelAll()
+        } else {
+          if (!timers.isTimerActive(CommonStatusTimer)) {
+            context.log.info("start timer...")
+            timers.startTimerWithFixedDelay(CommonStatusTimer, ReadDataObject(Seq(DataObjectID.CommonStatus)), 9.seconds)
+          }
         }
 
         def connectionCmdHandler(cmd: ConnectionCommand): Behavior[Command] = {
@@ -121,13 +127,21 @@ object SoundCamClient {
               context.log.debug(r.toString)
               Behaviors.same
 
-            case r@VideoData(timestamp, h, v, data)=>
+            case r@VideoData(timestamp, h, v, data) =>
               context.log.debug(r.toString)
               SoundCamInfoHandler.receive(r)
               Behaviors.same
 
-            case r@(AcousticImage(_, _, _, _, _) | AudioData(_, _, _, _, _, _, _, _, _) | DataToSend(_, _, _, _, _, _, _, _, _, _)
-                 | Spectrum(_, _, _, _, _, _, _)) =>
+            case r@AcousticImage(timestamp, freqMin, freqMax, distance, data) =>
+              context.log.debug(r.toString)
+              SoundCamInfoHandler.receive(r)
+              Behaviors.same
+
+            case r@Spectrum(timestamp, delta, filted, freqMin, freqMax, globalSpectrum, localSpectrum) =>
+              SoundCamInfoHandler.receive(r)
+              Behaviors.same
+
+            case r@(AudioData(_, _, _, _, _, _, _, _, _) | DataToSend(_, _, _, _, _, _, _, _, _, _)) =>
               context.log.info(r.toString)
               Behaviors.same
 
@@ -136,6 +150,21 @@ object SoundCamClient {
           }
         }
 
+        def prepare() = {
+          val now = LocalDateTime.now()
+          val currentDateTime = CurrentDateTime(now.getYear, now.getMonthValue, now.getDayOfMonth,
+            now.getHour, now.getMinute, now.getSecond, false)
+          val dataObjects = Seq(
+            Distance(100),
+            FrequencyRange(100, 24000),
+            CameraResolution(640, 480),
+            VideoFrameRate(30),
+            AcousticFrameRate(30),
+            currentDateTime
+          )
+          protocol ! SoundCamClient.WriteDataObject(dataObjects)
+          protocol ! SoundCamClient.PrepareState(DeviceState.Measuring)
+        }
 
         Behaviors.receiveMessage[Command]({
           // Connection
@@ -151,23 +180,32 @@ object SoundCamClient {
             Behaviors.same
 
           case req@StartProcedure =>
-            timers.cancelAll()
+            //timers.cancelAll()
             protocol ! req
             Behaviors.same
-
 
           // Response
           case resp: IdentificationResponse =>
             context.log.info(s"serial=${resp.serial}")
-            //protocol ! ReadDataObject(Seq(DataObjectID.DataToSend))
+            prepare()
+            Behaviors.same
+
+          case StartProcedureResponse =>
+            connected(protocol, context, DeviceState.Measuring, DeviceSubState.Running)
+
+          case StopProcedureResponse =>
+            connected(protocol, context, deviceState, DeviceSubState.Finished)
+
+          case PrepareStateResponse =>
+            protocol ! StartProcedure
             Behaviors.same
 
           // ignore resp
-          case resp@(PrepareStateResponse | StartProcedureResponse
-                     | StopProcedureResponse | FinishStateResponse | ResetResponse |
+          case resp@(FinishStateResponse | ResetResponse |
                      WriteDataObjectResponse) =>
             context.log.debug(resp.toString)
             Behaviors.same
+
 
           // Data Object
           case dataObject: DataObject =>
@@ -219,7 +257,7 @@ object SoundCamClient {
 
   final case class VideoFrameRate(rate: Int) extends DataObject
 
-  final case class CameraLight(on:Boolean) extends  DataObject
+  final case class CameraLight(on: Boolean) extends DataObject
 
   final case class LocalSoundTargetCoordinates(h: Short, v: Short) extends DataObject
 
@@ -227,7 +265,7 @@ object SoundCamClient {
                               micRawData: Boolean, spectra: Boolean, singleMicData: Boolean, localSoundFiltered: Boolean,
                               levelFiltered: Boolean, rawDataFiltered: Boolean) extends DataObject
 
-  final case class VideoData(timestamp: Long, h: Short, v: Short, data: ByteBuffer) extends DataObject
+  final case class VideoData(timestamp: Long, h: Short, v: Short, data: ByteString) extends DataObject
 
   final case class AcousticImage(timestamp: Long, freqMin: Short, freqMax: Short,
                                  distance: Int, data: Array[Float]) extends DataObject

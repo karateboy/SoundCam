@@ -6,14 +6,17 @@ import com.apaa.{DeviceState, SoundCamApp, SoundCamClient, SoundCamInfoHandler}
 import org.slf4j.LoggerFactory
 import scalafx.geometry.Insets
 import scalafx.scene.Node
-import scalafx.scene.control.Button
+import scalafx.scene.control.{Button, Label}
 import scalafx.scene.image.{Image, ImageView}
-import scalafx.scene.layout.{BorderPane, HBox}
+import scalafx.scene.layout.{BorderPane, HBox, StackPane}
 
 import java.time.LocalDateTime
 
 class OperationPage extends ContentPage {
   val logger = LoggerFactory.getLogger(this.getClass)
+
+  val globalDb = new Label("global")
+  val localDb = new Label("local")
 
   override def getContent: Node = {
     val client: ActorRef[SoundCamClient.Command] = SoundCamApp.soundCamClient
@@ -33,7 +36,6 @@ class OperationPage extends ContentPage {
         )
         client ! SoundCamClient.WriteDataObject(dataObjects)
         client ! SoundCamClient.PrepareState(DeviceState.Measuring)
-        //client ! ReadDataObject(Seq(DataObjectID.DataToSend))
       }
     }
     val btnStart = new Button("Start") {
@@ -54,7 +56,12 @@ class OperationPage extends ContentPage {
     SoundCamInfoHandler.setVideoSink(imageView)
     val borderPane = new BorderPane()
     borderPane.setTop(toolbar)
-    borderPane.setCenter(imageView)
+    val stack = new StackPane(){
+      children = Seq(globalDb, localDb)
+    }
+
+    val center = new HBox(imageView, stack)
+    borderPane.setCenter(center)
     borderPane
   }
 

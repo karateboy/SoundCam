@@ -3,13 +3,13 @@ package com.apaa
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import akka.io.Tcp._
-import akka.io.{IO, Tcp, Udp}
+import akka.io.{IO, Tcp}
 import akka.util.ByteString
 import com.apaa.SoundCamClient._
 import com.apaa.SoundCamProtocolHelper.WriteDataObjectReq
 import org.slf4j.LoggerFactory
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.InetSocketAddress
 import java.nio.{ByteBuffer, ByteOrder}
 
 object DeviceState {
@@ -184,32 +184,26 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
       context become connected(connection, ByteString.empty)
   }
 
-  def replyResponse(cmd: Int, data: ByteBuffer) = {
+  def replyResponse(cmd: Int, data: ByteString) = {
     import SoundCamProtocolHelper._
     if (handleMap.contains(cmd)) {
-      handleMap(cmd)(client, cmd, data)
+      handleMap(cmd)(client, cmd, data.asByteBuffer.order(ByteOrder.LITTLE_ENDIAN))
     } else
       log.error(s"Unknown cmd = $cmd")
   }
 
   def handleResponseFrame(frame: ByteString): Unit = {
-    val buffer = frame.asByteBuffer
-    buffer.order(ByteOrder.LITTLE_ENDIAN)
+    val buffer = frame.asByteBuffer.order(ByteOrder.LITTLE_ENDIAN)
     val cmd = buffer.get(0)
     val invokeID = buffer.get(1)
     val status = buffer.getInt(4)
     val len = buffer.getInt(8)
     val header = ResponseHeader(cmd, invokeID, status, len)
-    //log.info(s"header = ${header.toString}")
-    if (status != 0)
+    if (header.status != 0)
       client ! ErrorResponse(header, frame.drop(12))
     else {
       val data = frame.drop(12)
-      assert(len == data.length)
-      val dataBuffer = data.toByteBuffer
-      dataBuffer.order(ByteOrder.LITTLE_ENDIAN)
-      replyResponse(cmd & 0xff, dataBuffer)
-
+      replyResponse(cmd & 0xff, data)
     }
   }
 
@@ -217,14 +211,11 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
     val buffer = frame.asByteBuffer
     buffer.order(ByteOrder.LITTLE_ENDIAN)
     val cmd = buffer.get(0)
-    val invokeID = buffer.get(1)
-    val len = buffer.getInt(4)
+    //val invokeID = buffer.get(1)
+    //val len = buffer.getInt(4)
 
     val data = frame.drop(8)
-    assert(len == data.length)
-    val dataBuffer = data.toByteBuffer
-    dataBuffer.order(ByteOrder.LITTLE_ENDIAN)
-    replyResponse(cmd & 0xff, dataBuffer)
+    replyResponse(cmd & 0xff, data)
   }
 
   def connected(connection: ActorRef, buffer: ByteString): Receive = {
