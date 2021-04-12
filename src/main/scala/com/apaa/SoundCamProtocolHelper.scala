@@ -183,6 +183,7 @@ object SoundCamProtocolHelper {
 
             val floatArray = new Array[Float](3072)
             acousticData.get(floatArray, 0, 3072)
+            logger.info(s"${floatArray(0)} ${floatArray(1)} ${floatArray(2)}")
             client ! AcousticImage(timestamp, freqMin, freqMax, distance, floatArray)
             headerLen + len
           case DataObjectID.AudioData =>

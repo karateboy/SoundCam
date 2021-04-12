@@ -5,8 +5,8 @@ import com.apaa.SoundCamApp.stage
 import javafx.util.converter.IntegerStringConverter
 import scalafx.geometry.Pos.Center
 import scalafx.scene.Node
-import scalafx.scene.control.{Button, Label, TextField, TextFormatter}
-import scalafx.scene.layout.GridPane
+import scalafx.scene.control.{Button, Label, RadioButton, Slider, TextField, TextFormatter, ToggleGroup}
+import scalafx.scene.layout.{GridPane, HBox}
 import scalafx.stage.DirectoryChooser
 import scalafx.util.converter.DoubleStringConverter
 
@@ -69,7 +69,14 @@ class ConfigurePage extends ContentPage {
         null
     })
     grid.add(postTrigger, 1, 4)
-
+    grid.add(Label("噪音影像放大模式"), 0, 5)
+    val scaleModeGroup = new ToggleGroup()
+    val radioAuto = new RadioButton("Auto")
+    radioAuto.setToggleGroup(scaleModeGroup)
+    val radioSmart = new RadioButton("Smart")
+    radioSmart.setToggleGroup(scaleModeGroup)
+    radioAuto.setSelected(true)
+    grid.add(new HBox(radioAuto, radioSmart), 1, 5, 2, 1)
     grid
   }
 

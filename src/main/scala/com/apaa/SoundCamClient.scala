@@ -6,9 +6,9 @@ import akka.actor.ActorRef
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{Behavior, PostStop}
 import akka.util.ByteString
-import com.apaa.SoundCamProtocol.ResponseHeader
+import com.apaa.SoundCamProtocol.{ResponseHeader, logger}
 
-import java.time.LocalDateTime
+import java.time.{Duration, Instant, LocalDateTime}
 import scala.concurrent.duration.DurationInt
 
 object SoundCamClient {
@@ -128,17 +128,23 @@ object SoundCamClient {
               Behaviors.same
 
             case r@VideoData(timestamp, h, v, data) =>
-              context.log.debug(r.toString)
+              val begin = Instant.now()
               SoundCamInfoHandler.receive(r)
+              val end = Instant.now()
+              val duration = Duration.between(begin, end)
+              logger.info(s"video ${duration.getNano/1000000} ms")
               Behaviors.same
 
             case r@AcousticImage(timestamp, freqMin, freqMax, distance, data) =>
-              context.log.debug(r.toString)
               SoundCamInfoHandler.receive(r)
               Behaviors.same
 
             case r@Spectrum(timestamp, delta, filted, freqMin, freqMax, globalSpectrum, localSpectrum) =>
+              val begin = Instant.now()
               SoundCamInfoHandler.receive(r)
+              val end = Instant.now()
+              val duration = Duration.between(begin, end)
+              logger.info(s"spectrum ${duration.getNano/1000000} ms")
               Behaviors.same
 
             case r@(AudioData(_, _, _, _, _, _, _, _, _) | DataToSend(_, _, _, _, _, _, _, _, _, _)) =>
