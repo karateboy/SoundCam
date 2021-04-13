@@ -175,15 +175,13 @@ object SoundCamProtocolHelper {
             val len = data.getInt(4)
             val timestamp = data.getLong(8)
             val freqMin = data.getShort(16)
-            val freqMax = data.getShort(18)
-            val distance = data.getInt(20)
-            val acousticData = data.slice(24, 3072 * 4).order(ByteOrder.LITTLE_ENDIAN)
+            val freqMax = data.getShort(20)
+            val distance = data.getInt(24)
+            val acousticData = data.slice(40, 3072 * 4).order(ByteOrder.LITTLE_ENDIAN)
               .asFloatBuffer()
-            val bs = ByteString(data.slice(24, 3072 * 4).order(ByteOrder.LITTLE_ENDIAN))
 
             val floatArray = new Array[Float](3072)
             acousticData.get(floatArray, 0, 3072)
-            logger.info(s"${floatArray(0)} ${floatArray(1)} ${floatArray(2)}")
             client ! AcousticImage(timestamp, freqMin, freqMax, distance, floatArray)
             headerLen + len
           case DataObjectID.AudioData =>

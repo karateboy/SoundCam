@@ -1,14 +1,13 @@
 package com.apaa
 
 import akka.util.ByteString
-import com.apaa.OctaveBandTool.calculateAweight
+import com.apaa.OctaveBandTool.sumAweight
 import com.apaa.SoundCamClient.{AcousticImage, AudioData, Spectrum, VideoData}
-import org.opencv.core.{Core, CvType, Mat, MatOfByte, Scalar, Size}
+import org.opencv.core._
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.slf4j.LoggerFactory
 import scalafx.application.Platform
-import scalafx.scene.control.Label
 import scalafx.scene.image.{Image, ImageView}
 
 import java.io.ByteArrayInputStream
@@ -45,25 +44,42 @@ object SoundCamInfoHandler {
   def receive(ac: AcousticImage) = {
 
     for(sink <- videoSink) {
-      val frame = new Mat(48, 64, CvType.CV_32FC1)
-      frame.put(0, 0, ac.data)
+      def showMinMax(frame:Mat,name:String)={
+        val ret = Core.minMaxLoc(frame)
+        logger.info(s"$name max=${ret.maxVal} min=${ret.minVal}")
+        ret
+      }
+
+      val original = new Mat(48, 64, CvType.CV_32FC1)
+      original.put(0, 0, ac.data)
+      showMinMax(original, "frame")
+
       val resized = new Mat(videoV, videoH, CvType.CV_32FC1)
+      Imgproc.resize(original, resized, new Size(videoH, videoV))
+      val resizedMinMax = showMinMax(resized, "resized")
 
-      Imgproc.resize(frame, resized, new Size(videoH, videoV))
-      val ret = Core.minMaxLoc(resized)
-      //logger.info(s"max=${ret.maxVal} min=${ret.minVal}")
       val threshold = new Mat()
-      Imgproc.threshold(resized, threshold, ret.maxVal - 3.0, ret.maxVal, Imgproc.THRESH_TOZERO)
-      val dest = new Mat()
+      Imgproc.threshold(resized, threshold, resizedMinMax.maxVal-1, resizedMinMax.maxVal, Imgproc.THRESH_TOZERO)
+      showMinMax(threshold, "threshold")
 
-      threshold.convertTo(dest, CvType.CV_8UC1)
+      val normalized = new Mat()
+      Core.normalize(threshold, normalized, 0, 255, Core.NORM_MINMAX)
+      showMinMax(normalized, "normalized")
+
+      val grayscaled = new Mat()
+      normalized.convertTo(grayscaled, CvType.CV_8UC1)
+
+      val ret=showMinMax(grayscaled, "grayscaled")
+
+      val colored = new Mat()
+      Imgproc.applyColorMap(grayscaled, colored, Imgproc.COLORMAP_JET)
       //Imgproc.drawMarker(dest, ret.maxLoc, new Scalar(255, 0, 0), 3)
 
       //Core.normalize(videoFrame,dest,ret.minVal,ret.maxVal,Core.NORM_MINMAX,CvType.CV_8SC3)
       //Imgproc.drawMarker(dest, ret.maxLoc, new Scalar(255, 0, 0), 3)
 
       val buffer = new MatOfByte
-      Imgcodecs.imencode(".png", dest, buffer);
+      Imgcodecs.imencode(".png", colored, buffer);
       val img = new Image(new ByteArrayInputStream(buffer.toArray()))
       Platform.runLater(new Runnable() {
         override def run(): Unit = {
@@ -74,18 +90,8 @@ object SoundCamInfoHandler {
   }
 
   def receive(spectrum: Spectrum) = {
-    val globalFreqValues =
-      for ((v, idx) <- spectrum.globalSpectrum.zipWithIndex) yield {
-        FreqValue(spectrum.freqMin + spectrum.delta * idx, v)
-      }
-
-    val localFreqValues =
-      for ((v, idx) <- spectrum.localSpectrum.zipWithIndex) yield {
-        FreqValue(spectrum.freqMin + spectrum.delta * idx, v)
-      }
-
-    val globalDbA = calculateAweight(globalFreqValues)
-    val localDbA = calculateAweight(localFreqValues)
+    val globalDbA = sumAweight(spectrum.globalSpectrum)
+    val localDbA = sumAweight(spectrum.localSpectrum)
     logger.info(s"local=${localDbA} global=${globalDbA}")
   }
 

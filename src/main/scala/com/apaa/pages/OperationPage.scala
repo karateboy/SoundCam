@@ -28,7 +28,7 @@ class OperationPage extends ContentPage {
           now.getHour, now.getMinute, now.getSecond, false)
         val dataObjects = Seq(
           Distance(100),
-          FrequencyRange(100, 24000),
+          FrequencyRange(5623, 11200),
           CameraResolution(640, 480),
           VideoFrameRate(30),
           AcousticFrameRate(30),

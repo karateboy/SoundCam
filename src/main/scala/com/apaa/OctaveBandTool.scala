@@ -121,4 +121,12 @@ object OctaveBandTool {
     }
     math.log10(total) * 10
   }
+
+  def sumAweight(spectrum:Array[Float]):Double = {
+    var total = 0d
+    for(fv <- spectrum){
+        total += math.pow(10, fv/10)
+    }
+    math.log10(total) * 10
+  }
 }

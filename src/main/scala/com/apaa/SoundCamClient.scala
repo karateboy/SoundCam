@@ -144,11 +144,11 @@ object SoundCamClient {
               SoundCamInfoHandler.receive(r)
               val end = Instant.now()
               val duration = Duration.between(begin, end)
-              logger.info(s"spectrum ${duration.getNano/1000000} ms")
+              logger.debug(s"spectrum ${duration.getNano/1000000} ms")
               Behaviors.same
 
             case r@(AudioData(_, _, _, _, _, _, _, _, _) | DataToSend(_, _, _, _, _, _, _, _, _, _)) =>
-              context.log.info(r.toString)
+              //context.log.info(r.toString)
               Behaviors.same
 
             case dt: CurrentDateTime =>
@@ -162,7 +162,7 @@ object SoundCamClient {
             now.getHour, now.getMinute, now.getSecond, false)
           val dataObjects = Seq(
             Distance(100),
-            FrequencyRange(100, 24000),
+            FrequencyRange(5623, 11200),
             CameraResolution(640, 480),
             VideoFrameRate(30),
             AcousticFrameRate(30),
