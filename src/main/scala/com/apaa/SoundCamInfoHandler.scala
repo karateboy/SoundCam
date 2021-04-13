@@ -13,7 +13,6 @@ import scalafx.scene.image.{Image, ImageView}
 import java.io.ByteArrayInputStream
 import java.time.Instant
 import scala.collection.SortedMap
-import scala.collection.mutable.ArrayBuffer
 
 object SoundCamInfoHandler {
   val logger = LoggerFactory.getLogger(this.getClass)
@@ -27,17 +26,13 @@ object SoundCamInfoHandler {
   //val capture = new VideoCapture()
   //capture.open(0)
 
-  import collection.mutable.SortedMap
-  val timestampMap = SortedMap.empty[Long, Instant]
-  val dataMap = SortedMap.empty[Instant, Measurement]
+  var timestampMap = SortedMap.empty[Long, Instant]
+  var dataMap = SortedMap.empty[Instant, Measurement]
 
-  def receive(video: VideoData) = {
-    val timestamp = video.timestamp
-    val instant = timestampMap.getOrElseUpdate(timestamp, Instant.now())
-    val measurement = dataMap.getOrElseUpdate(instant, Measurement(timestamp, None, None, None, None))
-    measurement.video = Some(video)
-
-    for (sink <- videoSink) {
+  private def videoHandler(measurement: Measurement) = {
+    for {video <- measurement.video
+         sink <- videoSink
+         } {
       val frame = new Mat(video.v, video.h, CvType.CV_8UC1)
       val bs = ByteString(video.data)
       frame.put(0, 0, bs.toArray)
@@ -47,16 +42,47 @@ object SoundCamInfoHandler {
       val img = new Image(new ByteArrayInputStream(buffer.toArray()))
       Platform.runLater(new Runnable() {
         override def run(): Unit = {
-          //sink.setImage(img)
+          sink.setImage(img)
         }
       })
     }
   }
 
-  def receive(ac: AcousticImage) = {
+  def receive(video: VideoData) = {
+    val measurement = getMeasurement(video.timestamp)
+    measurement.video = Some(video)
+  }
 
-    for(sink <- videoSink) {
-      def showMinMax(frame:Mat,name:String)={
+  def getMeasurement(timestamp: Long) = {
+    val instant = timestampMap.getOrElse(timestamp, Instant.now())
+    timestampMap = timestampMap + (timestamp -> instant)
+    val measurement = dataMap.getOrElse(instant, Measurement(timestamp, None, None, None, None))
+    dataMap = dataMap + (instant -> measurement)
+    measurement
+  }
+
+  def removeOldMeasurement() = {
+    val preTrigger = Instant.now().minusSeconds(3)
+    dataMap = dataMap.dropWhile(p => p._1.isBefore(preTrigger))
+    timestampMap = timestampMap.dropWhile(p => p._2.isBefore(preTrigger))
+    logger.info(s"dataMap(${dataMap.size}) timestampMap(${timestampMap.size})")
+  }
+
+  def receive(ac: AcousticImage) = {
+    val measurement = getMeasurement(ac.timestamp)
+    measurement.acoustic = Some(ac)
+    removeOldMeasurement
+  }
+
+  def receive(spectrum: Spectrum) = {
+    val measurement = getMeasurement(spectrum.timestamp)
+    measurement.spectrum = Some(spectrum)
+    removeOldMeasurement()
+  }
+
+  private def acousticHandler(ac: AcousticImage) = {
+    for (sink <- videoSink) {
+      def showMinMax(frame: Mat, name: String) = {
         val ret = Core.minMaxLoc(frame)
         logger.info(s"$name max=${ret.maxVal} min=${ret.minVal}")
         ret
@@ -71,7 +97,7 @@ object SoundCamInfoHandler {
       val resizedMinMax = showMinMax(resized, "resized")
 
       val threshold = new Mat()
-      Imgproc.threshold(resized, threshold, resizedMinMax.maxVal-1, resizedMinMax.maxVal, Imgproc.THRESH_TOZERO)
+      Imgproc.threshold(resized, threshold, resizedMinMax.maxVal - 1, resizedMinMax.maxVal, Imgproc.THRESH_TOZERO)
       showMinMax(threshold, "threshold")
 
       val normalized = new Mat()
@@ -81,7 +107,7 @@ object SoundCamInfoHandler {
       val grayscaled = new Mat()
       normalized.convertTo(grayscaled, CvType.CV_8UC1)
 
-      val ret=showMinMax(grayscaled, "grayscaled")
+      val ret = showMinMax(grayscaled, "grayscaled")
 
       val colored = new Mat()
       Imgproc.applyColorMap(grayscaled, colored, Imgproc.COLORMAP_JET)
@@ -101,20 +127,22 @@ object SoundCamInfoHandler {
     }
   }
 
-  def receive(spectrum: Spectrum) = {
+  private def spectrumHandler(spectrum: Spectrum) = {
     val globalDbA = sumAweight(spectrum.globalSpectrum)
     val localDbA = sumAweight(spectrum.localSpectrum)
     logger.info(s"local=${localDbA} global=${globalDbA}")
   }
 
-  def receive(audioData: AudioData) = ???
+  def receive(audioData: AudioData) = {
+    val measurement = getMeasurement(audioData.timestamp)
+    measurement.audioData = Some(audioData)
+    removeOldMeasurement()
+  }
 
   var videoSink: Option[ImageView] = None
 
   def setVideoSink(sink: ImageView) = {
     videoSink = Some(sink)
   }
-
-
 
 }
