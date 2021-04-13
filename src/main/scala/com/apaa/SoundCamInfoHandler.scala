@@ -11,6 +11,9 @@ import scalafx.application.Platform
 import scalafx.scene.image.{Image, ImageView}
 
 import java.io.ByteArrayInputStream
+import java.time.Instant
+import scala.collection.SortedMap
+import scala.collection.mutable.ArrayBuffer
 
 object SoundCamInfoHandler {
   val logger = LoggerFactory.getLogger(this.getClass)
@@ -19,12 +22,21 @@ object SoundCamInfoHandler {
   var frameRate = 30
 
   case class Measurement(timestamp: Long,
-                         video: Option[VideoData], acoustic: Option[AcousticImage],
-                         spectrum: Option[Spectrum], audioData: Option[AudioData])
+                         var video: Option[VideoData], var acoustic: Option[AcousticImage],
+                         var spectrum: Option[Spectrum], var audioData: Option[AudioData])
   //val capture = new VideoCapture()
   //capture.open(0)
 
+  import collection.mutable.SortedMap
+  val timestampMap = SortedMap.empty[Long, Instant]
+  val dataMap = SortedMap.empty[Instant, Measurement]
+
   def receive(video: VideoData) = {
+    val timestamp = video.timestamp
+    val instant = timestampMap.getOrElseUpdate(timestamp, Instant.now())
+    val measurement = dataMap.getOrElseUpdate(instant, Measurement(timestamp, None, None, None, None))
+    measurement.video = Some(video)
+
     for (sink <- videoSink) {
       val frame = new Mat(video.v, video.h, CvType.CV_8UC1)
       val bs = ByteString(video.data)
