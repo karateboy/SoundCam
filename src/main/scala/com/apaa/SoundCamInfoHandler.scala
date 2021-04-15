@@ -8,6 +8,7 @@ import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.slf4j.LoggerFactory
 import scalafx.application.Platform
+import scalafx.scene.control.TextField
 import scalafx.scene.image.{Image, ImageView}
 
 import java.io.ByteArrayInputStream
@@ -19,20 +20,25 @@ object SoundCamInfoHandler {
   var videoH = 640
   var videoV = 480
   var frameRate = 30
-
-  case class Measurement(timestamp: Long,
-                         var video: Option[VideoData], var acoustic: Option[AcousticImage],
-                         var spectrum: Option[Spectrum], var audioData: Option[AudioData])
-  //val capture = new VideoCapture()
-  //capture.open(0)
-
   var timestampMap = SortedMap.empty[Long, Instant]
-  var dataMap = SortedMap.empty[Instant, Measurement]
 
-  private def videoHandler(measurement: Measurement) = {
-    for {video <- measurement.video
-         sink <- videoSink
-         } {
+  var dataMap = SortedMap.empty[Instant, Measurement]
+  private var videoSink: Option[ImageView] = None
+  private var acousticSink: Option[ImageView] = None
+  private var globalDba: Option[TextField] = None
+  private var localDba: Option[TextField] = None
+
+  def receive(video: VideoData) = {
+    val measurement = getMeasurement(video.timestamp)
+    measurement.video = Some(video)
+    videoHandler(video)
+    removeOldMeasurement
+  }
+
+  private def videoHandler(video: VideoData) = {
+    for {
+      sink <- videoSink
+    } {
       val frame = new Mat(video.v, video.h, CvType.CV_8UC1)
       val bs = ByteString(video.data)
       frame.put(0, 0, bs.toArray)
@@ -46,11 +52,6 @@ object SoundCamInfoHandler {
         }
       })
     }
-  }
-
-  def receive(video: VideoData) = {
-    val measurement = getMeasurement(video.timestamp)
-    measurement.video = Some(video)
   }
 
   def getMeasurement(timestamp: Long) = {
@@ -71,17 +72,12 @@ object SoundCamInfoHandler {
   def receive(ac: AcousticImage) = {
     val measurement = getMeasurement(ac.timestamp)
     measurement.acoustic = Some(ac)
+    acousticHandler(ac)
     removeOldMeasurement
   }
 
-  def receive(spectrum: Spectrum) = {
-    val measurement = getMeasurement(spectrum.timestamp)
-    measurement.spectrum = Some(spectrum)
-    removeOldMeasurement()
-  }
-
   private def acousticHandler(ac: AcousticImage) = {
-    for (sink <- videoSink) {
+    for (sink <- acousticSink) {
       def showMinMax(frame: Mat, name: String) = {
         val ret = Core.minMaxLoc(frame)
         logger.info(s"$name max=${ret.maxVal} min=${ret.minVal}")
@@ -127,10 +123,25 @@ object SoundCamInfoHandler {
     }
   }
 
+  def receive(spectrum: Spectrum) = {
+    val measurement = getMeasurement(spectrum.timestamp)
+    measurement.spectrum = Some(spectrum)
+    spectrumHandler(spectrum)
+    removeOldMeasurement()
+  }
+
   private def spectrumHandler(spectrum: Spectrum) = {
-    val globalDbA = sumAweight(spectrum.globalSpectrum)
-    val localDbA = sumAweight(spectrum.localSpectrum)
-    logger.info(s"local=${localDbA} global=${globalDbA}")
+    Platform.runLater(new Runnable() {
+      override def run(): Unit = {
+        for {
+          global <- globalDba
+          local <- localDba
+        } {
+          global.setText(String.format("%.2f", sumAweight(spectrum.globalSpectrum)))
+          local.setText(String.format("%.2f", sumAweight(spectrum.localSpectrum)))
+        }
+      }
+    })
   }
 
   def receive(audioData: AudioData) = {
@@ -139,10 +150,21 @@ object SoundCamInfoHandler {
     removeOldMeasurement()
   }
 
-  var videoSink: Option[ImageView] = None
-
   def setVideoSink(sink: ImageView) = {
     videoSink = Some(sink)
   }
+
+  def setAcousticSink(sink: ImageView) = {
+    acousticSink = Some(sink)
+  }
+
+  def setDbaTextField(global: TextField, local: TextField) = {
+    globalDba = Some(global)
+    localDba = Some(local)
+  }
+
+  case class Measurement(timestamp: Long,
+                         var video: Option[VideoData], var acoustic: Option[AcousticImage],
+                         var spectrum: Option[Spectrum], var audioData: Option[AudioData])
 
 }
