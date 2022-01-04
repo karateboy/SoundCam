@@ -5,7 +5,7 @@ import com.apaa.SoundCamApp.stage
 import javafx.util.converter.IntegerStringConverter
 import scalafx.geometry.Pos.Center
 import scalafx.scene.Node
-import scalafx.scene.control.{Button, Label, RadioButton, Slider, TextField, TextFormatter, ToggleGroup}
+import scalafx.scene.control._
 import scalafx.scene.layout.{GridPane, HBox}
 import scalafx.stage.DirectoryChooser
 import scalafx.util.converter.DoubleStringConverter
@@ -14,7 +14,7 @@ import java.io.File
 
 class ConfigurePage extends ContentPage {
   override def getContent: Node = {
-    val grid = new GridPane()
+    val grid: GridPane = new GridPane()
     grid.setAlignment(Center)
     grid.setHgap(10)
     grid.setVgap(10)

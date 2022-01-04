@@ -17,13 +17,19 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
   "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
   "org.scalafx" %% "scalafx-extras" % "0.3.6",
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "ch.qos.logback" % "logback-classic" % "1.2.9",
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
   "org.scalatest" %% "scalatest" % "3.2.6" % Test
 )
 
-// https://mvnrepository.com/artifact/com.typesafe.akka/akka-stream
-// libraryDependencies += "com.typesafe.akka" %% "akka-stream" % akkaVersion
+// https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
+libraryDependencies += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.13.1"
+
+// https://mvnrepository.com/artifact/com.typesafe.play/play-ahc-ws-standalone
+libraryDependencies += "com.typesafe.play" %% "play-ahc-ws-standalone" % "2.1.6"
+
+libraryDependencies += "com.typesafe.play" %% "play-ws-standalone-xml" % "2.1.6"
+libraryDependencies += "com.typesafe.play" %% "play-ws-standalone-json" % "2.1.6"
 
 // https://mvnrepository.com/artifact/org.scalafx/scalafx
 libraryDependencies += "org.scalafx" %% "scalafx" % "15.0.1-R21"
@@ -114,3 +120,5 @@ assemblyMergeStrategy in assembly := {
 mainClass in Compile := Some("com.apaa.SoundCamApp")
 javaOptions in run += "-Djava.library.path=lib"
 
+// https://mvnrepository.com/artifact/com.typesafe.play/play-json
+libraryDependencies += "com.typesafe.play" %% "play-json" % "2.9.2"

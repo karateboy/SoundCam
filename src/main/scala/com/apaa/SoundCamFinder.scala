@@ -1,6 +1,6 @@
 package com.apaa
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.io.{IO, Udp}
 import com.apaa.SoundCamApp.soundCamApp.executionContext
 import com.apaa.SoundCamClient.DiscoverSoundCam
@@ -8,11 +8,11 @@ import com.apaa.SoundCamClient.DiscoverSoundCam
 import java.net.{InetSocketAddress, InterfaceAddress}
 import scala.concurrent.duration.DurationInt
 object SoundCamFinder {
-  def props(client: ActorRef) = Props(classOf[SoundCamFinder], client)
+  def props(client: ActorRef): Props = Props(classOf[SoundCamFinder], client)
 
 }
 class SoundCamFinder(client:ActorRef) extends Actor with ActorLogging {
-  implicit val sys = context.system.classicSystem
+  implicit val sys: ActorSystem = context.system.classicSystem
   //IO(Udp) ! Udp.Bind(self, new InetSocketAddress("localhost", 0))
 
 
@@ -23,7 +23,7 @@ class SoundCamFinder(client:ActorRef) extends Actor with ActorLogging {
       Seq(Udp.SO.Broadcast(true)))
   }
 
-  def broadcast(broadcastMessage: String, address: InetAddress, port:Int)= {
+  def broadcast(broadcastMessage: String, address: InetAddress, port:Int): Unit = {
     val socket = new DatagramSocket
     socket.setBroadcast(true)
     val buffer = broadcastMessage.getBytes
@@ -35,7 +35,7 @@ class SoundCamFinder(client:ActorRef) extends Actor with ActorLogging {
   import java.net.{InetAddress, NetworkInterface, SocketException}
 
   @throws[SocketException]
-  def listBroadcastAddresses = {
+  def listBroadcastAddresses: Iterator[InetAddress] = {
     import scala.jdk.CollectionConverters._
 
     val interfaces = NetworkInterface.getNetworkInterfaces.asIterator().asScala
@@ -51,7 +51,7 @@ class SoundCamFinder(client:ActorRef) extends Actor with ActorLogging {
     broadcastList.flatten
   }
 
-  def listLocalAddresses = {
+  def listLocalAddresses: Iterator[InetAddress] = {
     import scala.jdk.CollectionConverters._
 
     val interfaces = NetworkInterface.getNetworkInterfaces.asIterator().asScala

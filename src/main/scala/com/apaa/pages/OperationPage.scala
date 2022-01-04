@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
 import scalafx.collections.ObservableBuffer
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Node
-import scalafx.scene.chart.{LineChart, NumberAxis, XYChart}
+import scalafx.scene.chart.{BarChart, CategoryAxis, NumberAxis, XYChart}
 import scalafx.scene.control.{Button, Label, TextField}
 import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.layout.{BorderPane, GridPane, HBox}
@@ -84,7 +84,7 @@ class OperationPage extends ContentPage {
     toolbar
   }
 
-  def getDbaPane = {
+  def getDbaPane: GridPane = {
     val grid = new GridPane()
     grid.setAlignment(Pos.Center)
     grid.setHgap(10)
@@ -104,36 +104,29 @@ class OperationPage extends ContentPage {
     grid
   }
 
-  def getSpectrumPane = {
-    val xAxis = NumberAxis("頻率 Hz")
+  val ONE_THIRD_OCTAVE_BANDS_CENTER_FREQ: Seq[String] = Seq("6.3", "8", "10", "12.5", "16", "20", "25", "31.5",
+    "40", "50", "63", "80", "100", "125", "160", "200", "250",
+    "315", "400", "500", "630", "800", "1k", "1.25k", "1.6k",
+    "2k", "2.5k", "3.15k", "4k", "5k", "6.3k", "8k", "10k", "12.5k", "16k", "20k")
+
+  def getSpectrumPane: BarChart[String, Number] = {
+    val xAxis = CategoryAxis("頻率 Hz")
     val yAxis = NumberAxis("聲壓 dB(A)")
 
     // Helper function to convert a tuple to `XYChart.Data`
-    val toChartData = (xy: (Double, Double)) => XYChart.Data[Number, Number](xy._1, xy._2)
+    val toChartData = (xy: (String, Double)) => XYChart.Data[String, Number](xy._1, xy._2)
 
-    val series1 = new XYChart.Series[Number, Number] {
+    val oneThirdData: Seq[(String, Double)] = for(name<-ONE_THIRD_OCTAVE_BANDS_CENTER_FREQ) yield
+      (name, 100.0 + Math.random()*50)
+    val series1 = new XYChart.Series[String, Number] {
       name = "Series 1"
-      data = Seq(
-        (0.0, 1.0),
-        (1.2, 1.4),
-        (2.2, 1.9),
-        (2.7, 2.3),
-        (2.9, 0.5)).map(toChartData)
+      data = oneThirdData.map(toChartData)
     }
+    series1.setName("1/3 頻譜")
 
-    val series2 = new XYChart.Series[Number, Number] {
-      name = "Series 2"
-      data = Seq(
-        (0.0, 1.6),
-        (0.8, 0.4),
-        (1.4, 2.9),
-        (2.1, 1.3),
-        (2.6, 0.9)).map(toChartData)
-    }
-
-    val chart = new LineChart[Number, Number](xAxis, yAxis, ObservableBuffer(series1, series2))
-    chart.setTitle("頻譜圖")
-    chart
+    val chart1 = new BarChart[String, Number](xAxis, yAxis, ObservableBuffer(series1))
+    chart1.setTitle("1/3 頻譜圖")
+    chart1
   }
 
   override def getTitle: String = "操作"
