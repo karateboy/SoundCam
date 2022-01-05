@@ -156,7 +156,6 @@ class SoundCamProtocol(client: akka.actor.typed.ActorRef[SoundCamClient.Command]
   log.info("SoundCamProtocol online")
   implicit val sys = context.system.classicSystem
   val tcpManager: ActorRef = IO(Tcp)
-  var client_ip = "192.168.2.1"
 
   val finder = context.actorOf(SoundCamFinder.props(self), "finder")
 

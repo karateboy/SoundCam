@@ -67,7 +67,7 @@ object SoundCamApp extends JFXApp3 {
         })
     }
 
-  def soundCamClient = _soundCamClient
+  def soundCamClient: ActorRef[SoundCamClient.Command] = _soundCamClient
 
   override def start(): Unit = {
     import org.opencv.core.Core
@@ -154,7 +154,7 @@ object SoundCamApp extends JFXApp3 {
   }
 
 
-  def readConfig () = {
+  def readConfig (): Unit = {
     //val config = com.typesafe.config.ConfigFactory.load()
   }
 

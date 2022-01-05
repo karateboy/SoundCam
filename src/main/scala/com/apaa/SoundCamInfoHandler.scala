@@ -8,6 +8,7 @@ import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.slf4j.{Logger, LoggerFactory}
 import scalafx.application.Platform
+import scalafx.scene.chart.{BarChart, XYChart}
 import scalafx.scene.control.TextField
 import scalafx.scene.image.{Image, ImageView}
 
@@ -27,6 +28,8 @@ object SoundCamInfoHandler {
   private var acousticSink: Option[ImageView] = None
   private var globalDba: Option[TextField] = None
   private var localDba: Option[TextField] = None
+  private var duoDbaOpt: Option[TextField] = None
+  private var spectrumChart: Option[BarChart[String, Number]] = None
 
   def receive(video: VideoData): Unit = {
     val measurement: Measurement = getMeasurement(video.timestamp)
@@ -66,7 +69,7 @@ object SoundCamInfoHandler {
     val preTrigger = Instant.now().minusSeconds(3)
     dataMap = dataMap.dropWhile(p => p._1.isBefore(preTrigger))
     timestampMap = timestampMap.dropWhile(p => p._2.isBefore(preTrigger))
-    logger.info(s"dataMap(${dataMap.size}) timestampMap(${timestampMap.size})")
+    logger.debug(s"dataMap(${dataMap.size}) timestampMap(${timestampMap.size})")
   }
 
   def receive(ac: AcousticImage): Unit = {
@@ -161,6 +164,37 @@ object SoundCamInfoHandler {
   def setDbaTextField(global: TextField, local: TextField): Unit = {
     globalDba = Some(global)
     localDba = Some(local)
+  }
+
+  def setDuoDbA(duoDba: TextField)={
+    duoDbaOpt = Some(duoDba)
+  }
+
+  def setSpectrumChart(chart:BarChart[String, Number]) = {
+    spectrumChart = Some(chart)
+  }
+
+  val toChartData = (xy: (String, Double)) => XYChart.Data[String, Number](xy._1, xy._2)
+
+  def receive(duoValues: DuoValues) = {
+    Platform.runLater(new Runnable() {
+      override def run(): Unit = {
+        for(duoDba <- duoDbaOpt){
+          if(duoValues.instantValues.nonEmpty){
+            duoDba.setText(s"${duoValues.instantValues(0)}")
+          }
+        }
+
+        for(spectrumChart <- spectrumChart){
+          val spectrum: Seq[(String, Double)] = Duo.ONE_THIRD_OCTAVE_BANDS_CENTER_FREQ.zip(duoValues.spectrum)
+          val series1 = new XYChart.Series[String, Number] {
+            name = "1/3 頻譜"
+            data = spectrum.map(toChartData)
+          }
+          spectrumChart.data = series1
+        }
+      }
+    })
   }
 
   case class Measurement(timestamp: Long,

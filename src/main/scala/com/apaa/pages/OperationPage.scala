@@ -37,7 +37,9 @@ class OperationPage extends ContentPage {
     val acoustImage = new ImageView("/scalafx/ensemble/images/animals-200x200/animal2.jpg")
     SoundCamInfoHandler.setAcousticSink(acoustImage)
     grid.add(acoustImage, 0, 1)
-    grid.add(getSpectrumPane, 1, 1)
+    val spectrumChart: BarChart[String, Number] = getSpectrumChart
+    SoundCamInfoHandler.setSpectrumChart(spectrumChart)
+    grid.add(spectrumChart, 1, 1)
 
     borderPane.setCenter(grid)
     borderPane
@@ -91,15 +93,22 @@ class OperationPage extends ContentPage {
     grid.setVgap(10)
     grid.add(new Label("Global dB(A)"), 0, 0)
     val globalDBa = new TextField()
-    globalDBa.setPrefWidth(40)
+    globalDBa.setPrefWidth(60)
     globalDBa.setEditable(false)
     grid.add(globalDBa, 1, 0)
+
     grid.add(new Label("Local dB(A)"), 0, 1)
     val localDBa = new TextField()
-    localDBa.setPrefWidth(40)
+    localDBa.setPrefWidth(60)
     localDBa.setEditable(false)
     SoundCamInfoHandler.setDbaTextField(globalDBa, localDBa)
     grid.add(localDBa, 1, 1)
+    grid.add(new Label("Duo dB(A)"), 0, 2)
+    val duoDBa = new TextField()
+    duoDBa.setPrefWidth(60)
+    duoDBa.setEditable(false)
+    grid.add(duoDBa, 1, 2)
+    SoundCamInfoHandler.setDuoDbA(duoDBa)
     grid.setPadding(Insets(10))
     grid
   }
@@ -109,15 +118,14 @@ class OperationPage extends ContentPage {
     "315", "400", "500", "630", "800", "1k", "1.25k", "1.6k",
     "2k", "2.5k", "3.15k", "4k", "5k", "6.3k", "8k", "10k", "12.5k", "16k", "20k")
 
-  def getSpectrumPane: BarChart[String, Number] = {
+  def getSpectrumChart: BarChart[String, Number] = {
     val xAxis = CategoryAxis("頻率 Hz")
     val yAxis = NumberAxis("聲壓 dB(A)")
 
-    // Helper function to convert a tuple to `XYChart.Data`
     val toChartData = (xy: (String, Double)) => XYChart.Data[String, Number](xy._1, xy._2)
 
     val oneThirdData: Seq[(String, Double)] = for(name<-ONE_THIRD_OCTAVE_BANDS_CENTER_FREQ) yield
-      (name, 100.0 + Math.random()*50)
+      (name, 100.0)
     val series1 = new XYChart.Series[String, Number] {
       name = "Series 1"
       data = oneThirdData.map(toChartData)

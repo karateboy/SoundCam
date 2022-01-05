@@ -26,6 +26,9 @@ object SoundCamClient {
       system.actorOf(SoundCamProtocol.props(context.self), "SoundCamProtocol")
     })
 
+    val protocolParam = ProtocolParam(Protocol.tcp, Some("192.168.2.200"), None, None)
+    system.actorOf(Duo.props(protocolParam), "duoActor")
+
     //val config = com.typesafe.config.ConfigFactory.defaultApplication()
     //config.get
     protocol ! DiscoverSoundCam

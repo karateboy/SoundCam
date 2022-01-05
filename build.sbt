@@ -15,12 +15,17 @@ lazy val akkaVersion = "2.6.13"
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
   "com.typesafe.akka" %% "akka-actor" % akkaVersion,
+  "com.typesafe.akka" %% "akka-protobuf-v3" % akkaVersion,
+  "com.typesafe.akka" %% "akka-stream" % "2.6.13",
   "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
   "org.scalafx" %% "scalafx-extras" % "0.3.6",
   "ch.qos.logback" % "logback-classic" % "1.2.9",
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
   "org.scalatest" %% "scalatest" % "3.2.6" % Test
 )
+
+// https://mvnrepository.com/artifact/com.typesafe.akka/akka-protobuf-v3
+libraryDependencies += "com.typesafe.akka" %% "akka-protobuf-v3" % "2.6.13"
 
 // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
 libraryDependencies += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.13.1"
