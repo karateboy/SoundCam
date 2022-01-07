@@ -3,6 +3,7 @@ package com.apaa
 import akka.util.ByteString
 import com.apaa.OctaveBandTool.sumAweight
 import com.apaa.SoundCamClient.{AcousticImage, AudioData, Spectrum, VideoData}
+import org.opencv.core.Core.MinMaxLocResult
 import org.opencv.core._
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
@@ -14,7 +15,7 @@ import scalafx.scene.image.{Image, ImageView}
 
 import java.io.ByteArrayInputStream
 import java.time.Instant
-import scala.collection.SortedMap
+import scala.collection.mutable.SortedMap
 
 object SoundCamInfoHandler {
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -33,19 +34,19 @@ object SoundCamInfoHandler {
 
   def receive(video: VideoData): Unit = {
     val measurement: Measurement = getMeasurement(video.timestamp)
-    measurement.video = Some(video)
-    videoHandler(video)
+    measurement.videoOpt = Some(video)
+    measureHandler(measurement)
     removeOldMeasurement()
   }
 
-  private def videoHandler(video: VideoData): Unit = {
+  private def videoHandler(video: VideoData, minMax: MinMaxLocResult): Unit = {
     for {
       sink <- videoSink
     } {
       val frame = new Mat(video.v, video.h, CvType.CV_8UC1)
       val bs = ByteString(video.data)
       frame.put(0, 0, bs.toArray)
-
+      Imgproc.drawMarker(frame, minMax.maxLoc, new Scalar(255, 0, 0), 3)
       val buffer = new MatOfByte
       Imgcodecs.imencode(".png", frame, buffer);
       val img = new Image(new ByteArrayInputStream(buffer.toArray()))
@@ -58,10 +59,8 @@ object SoundCamInfoHandler {
   }
 
   def getMeasurement(timestamp: Long): Measurement = {
-    val instant = timestampMap.getOrElse(timestamp, Instant.now())
-    timestampMap = timestampMap ++ Map(timestamp -> instant)
-    val measurement = dataMap.getOrElse(instant, Measurement(timestamp, None, None, None, None))
-    dataMap = dataMap ++ Map(instant -> measurement)
+    val instant = timestampMap.getOrElseUpdate(timestamp, Instant.now())
+    val measurement = dataMap.getOrElseUpdate(instant, Measurement(timestamp, None, None, None, None))
     measurement
   }
 
@@ -73,20 +72,29 @@ object SoundCamInfoHandler {
   }
 
   def receive(ac: AcousticImage): Unit = {
-    val measurement = getMeasurement(ac.timestamp)
-    measurement.acoustic = Some(ac)
-    acousticHandler(ac)
+    val measurement: Measurement = getMeasurement(ac.timestamp)
+    measurement.acousticOpt = Some(ac)
+    measureHandler(measurement)
     removeOldMeasurement()
   }
 
-  private def acousticHandler(ac: AcousticImage): Unit = {
-    for (sink <- acousticSink) {
-      def showMinMax(frame: Mat, name: String) = {
-        val ret = Core.minMaxLoc(frame)
-        logger.info(s"$name max=${ret.maxVal} min=${ret.minVal}")
-        ret
-      }
+  private def measureHandler(me: Measurement): Unit = {
+    for {video <- me.videoOpt
+         ac <- me.acousticOpt
+         } {
+      val minMax = acousticHandler(ac)
+      videoHandler(video, minMax.get)
+    }
+  }
 
+  private def acousticHandler(ac: AcousticImage) = {
+    def showMinMax(frame: Mat, name: String): Core.MinMaxLocResult = {
+      val ret = Core.minMaxLoc(frame)
+      logger.info(s"$name max=${ret.maxVal} X=${ret.maxLoc.x} Y=${ret.maxLoc.y}")
+      ret
+    }
+
+    for (sink <- acousticSink) yield {
       val original = new Mat(48, 64, CvType.CV_32FC1)
       original.put(0, 0, ac.data)
       showMinMax(original, "frame")
@@ -99,30 +107,34 @@ object SoundCamInfoHandler {
       Imgproc.threshold(resized, threshold, resizedMinMax.maxVal - 1, resizedMinMax.maxVal, Imgproc.THRESH_TOZERO)
       showMinMax(threshold, "threshold")
 
-      val normalized = new Mat()
-      Core.normalize(threshold, normalized, 0, 255, Core.NORM_MINMAX)
-      showMinMax(normalized, "normalized")
+      //val normalized = new Mat()
+      //Core.normalize(threshold, normalized, 0, 255, Core.NORM_MINMAX)
+      //showMinMax(normalized, "normalized")
 
-      val grayscaled = new Mat()
-      normalized.convertTo(grayscaled, CvType.CV_8UC1)
+      //val grayscaled = new Mat()
+      // normalized.convertTo(grayscaled, CvType.CV_8UC1)
 
-      //val ret = showMinMax(grayscaled, "grayscaled")
+      // showMinMax(grayscaled, "grayscaled")
 
+      /*
       val colored = new Mat()
-      Imgproc.applyColorMap(grayscaled, colored, Imgproc.COLORMAP_JET)
+      Imgproc.applyColorMap(grayscaled, colored, Imgproc.COLORMAP_HOT)
       //Imgproc.drawMarker(dest, ret.maxLoc, new Scalar(255, 0, 0), 3)
 
       //Core.normalize(videoFrame,dest,ret.minVal,ret.maxVal,Core.NORM_MINMAX,CvType.CV_8SC3)
       //Imgproc.drawMarker(dest, ret.maxLoc, new Scalar(255, 0, 0), 3)
 
+
       val buffer: MatOfByte = new MatOfByte
-      Imgcodecs.imencode(".png", colored, buffer);
+      Imgcodecs.imencode(".png", grayscaled, buffer);
       val img: Image = new Image(new ByteArrayInputStream(buffer.toArray()))
       Platform.runLater(new Runnable() {
         override def run(): Unit = {
           sink.setImage(img)
         }
       })
+
+       */
     }
   }
 
@@ -166,11 +178,11 @@ object SoundCamInfoHandler {
     localDba = Some(local)
   }
 
-  def setDuoDbA(duoDba: TextField)={
+  def setDuoDbA(duoDba: TextField): Unit = {
     duoDbaOpt = Some(duoDba)
   }
 
-  def setSpectrumChart(chart:BarChart[String, Number]) = {
+  def setSpectrumChart(chart: BarChart[String, Number]): Unit = {
     spectrumChart = Some(chart)
   }
 
@@ -179,13 +191,13 @@ object SoundCamInfoHandler {
   def receive(duoValues: DuoValues) = {
     Platform.runLater(new Runnable() {
       override def run(): Unit = {
-        for(duoDba <- duoDbaOpt){
-          if(duoValues.instantValues.nonEmpty){
+        for (duoDba <- duoDbaOpt) {
+          if (duoValues.instantValues.nonEmpty) {
             duoDba.setText(s"${duoValues.instantValues(0)}")
           }
         }
 
-        for(spectrumChart <- spectrumChart){
+        for (spectrumChart <- spectrumChart) {
           val spectrum: Seq[(String, Double)] = Duo.ONE_THIRD_OCTAVE_BANDS_CENTER_FREQ.zip(duoValues.spectrum)
           val series1 = new XYChart.Series[String, Number] {
             name = "1/3 頻譜"
@@ -198,7 +210,7 @@ object SoundCamInfoHandler {
   }
 
   case class Measurement(timestamp: Long,
-                         var video: Option[VideoData], var acoustic: Option[AcousticImage],
+                         var videoOpt: Option[VideoData], var acousticOpt: Option[AcousticImage],
                          var spectrum: Option[Spectrum], var audioData: Option[AudioData])
 
 }

@@ -6,13 +6,14 @@ import akka.actor.ActorRef
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{Behavior, PostStop}
 import akka.util.ByteString
-import com.apaa.SoundCamProtocol.{ResponseHeader, logger}
+import com.apaa.SoundCamProtocol.ResponseHeader
+import org.slf4j.LoggerFactory
 
 import java.time.{Duration, Instant, LocalDateTime}
 import scala.concurrent.duration.DurationInt
 
 object SoundCamClient {
-
+  val logger = LoggerFactory.getLogger(this.getClass)
   //#create-actors
   val system = actor.ActorSystem("ClassicSystem")
 
@@ -135,7 +136,7 @@ object SoundCamClient {
               SoundCamInfoHandler.receive(r)
               val end = Instant.now()
               val duration = Duration.between(begin, end)
-              logger.info(s"video ${duration.getNano/1000000} ms")
+              logger.debug(s"video ${duration.getNano/1000000} ms")
               Behaviors.same
 
             case r@AcousticImage(timestamp, freqMin, freqMax, distance, data) =>
@@ -164,11 +165,11 @@ object SoundCamClient {
           val currentDateTime = CurrentDateTime(now.getYear, now.getMonthValue, now.getDayOfMonth,
             now.getHour, now.getMinute, now.getSecond, false)
           val dataObjects = Seq(
-            Distance(100),
-            FrequencyRange(5623, 11200),
-            CameraResolution(640, 480),
-            VideoFrameRate(30),
-            AcousticFrameRate(30),
+            Distance(350),
+            FrequencyRange(5623, 40000),
+            CameraResolution(320, 240),
+            VideoFrameRate(60),
+            AcousticFrameRate(60),
             currentDateTime
           )
           protocol ! SoundCamClient.WriteDataObject(dataObjects)
