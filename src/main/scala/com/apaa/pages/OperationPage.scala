@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
 import scalafx.collections.ObservableBuffer
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Node
-import scalafx.scene.chart.{BarChart, CategoryAxis, NumberAxis, XYChart}
+import scalafx.scene.chart.{BarChart, CategoryAxis, LineChart, NumberAxis, XYChart}
 import scalafx.scene.control.{Button, Label, TextField}
 import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.layout.{BorderPane, GridPane, HBox}
@@ -36,7 +36,9 @@ class OperationPage extends ContentPage {
     grid.add(stack, 1, 0)
     val acoustImage = new ImageView("/scalafx/ensemble/images/animals-200x200/animal2.jpg")
     SoundCamInfoHandler.setAcousticSink(acoustImage)
-    grid.add(acoustImage, 0, 1)
+    val chart = getSplChart
+    SoundCamInfoHandler.setSplChart(chart)
+    grid.add(chart, 0, 1)
     val spectrumChart: BarChart[String, Number] = getSpectrumChart
     SoundCamInfoHandler.setSpectrumChart(spectrumChart)
     grid.add(spectrumChart, 1, 1)
@@ -135,6 +137,26 @@ class OperationPage extends ContentPage {
     val chart1 = new BarChart[String, Number](xAxis, yAxis, ObservableBuffer(series1))
     chart1.setTitle("1/3 頻譜圖")
     chart1
+  }
+
+  def getSplChart: LineChart[Number, Number] = {
+    val xAxis = NumberAxis("時間")
+    val yAxis = NumberAxis("聲壓 dB(A)")
+
+    val toChartData = (xy: (Int, Double)) => XYChart.Data[Number, Number](xy._1, xy._2)
+
+    val timelabels:Seq[Int] = Seq(-8, -7, -6, -5, -4, -3, -2, -1, 0)
+    val oneThirdData: Seq[(Int, Double)] = for(name<-timelabels) yield
+      (name, 100.0)
+    val series1 = new XYChart.Series[Number, Number] {
+      name = "Series 1"
+      data = oneThirdData.map(toChartData)
+    }
+    series1.setName("LAF")
+
+    var chart2 = new LineChart[Number, Number](xAxis, yAxis, ObservableBuffer(Seq(series1.delegate)))
+    chart2.setTitle("SPL")
+    chart2
   }
 
   override def getTitle: String = "操作"

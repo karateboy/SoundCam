@@ -167,9 +167,9 @@ object SoundCamClient {
           val dataObjects = Seq(
             Distance(350),
             FrequencyRange(5623, 40000),
-            CameraResolution(320, 240),
-            VideoFrameRate(60),
-            AcousticFrameRate(60),
+            CameraResolution(640, 480),
+            VideoFrameRate(30),
+            AcousticFrameRate(30),
             currentDateTime
           )
           protocol ! SoundCamClient.WriteDataObject(dataObjects)

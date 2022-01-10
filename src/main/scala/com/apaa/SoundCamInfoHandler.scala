@@ -9,13 +9,13 @@ import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import org.slf4j.{Logger, LoggerFactory}
 import scalafx.application.Platform
-import scalafx.scene.chart.{BarChart, XYChart}
+import scalafx.scene.chart.{BarChart, LineChart, XYChart}
 import scalafx.scene.control.TextField
 import scalafx.scene.image.{Image, ImageView}
 
 import java.io.ByteArrayInputStream
 import java.time.Instant
-import scala.collection.mutable.SortedMap
+import scala.collection.mutable.{ListBuffer, SortedMap}
 
 object SoundCamInfoHandler {
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -31,6 +31,7 @@ object SoundCamInfoHandler {
   private var localDba: Option[TextField] = None
   private var duoDbaOpt: Option[TextField] = None
   private var spectrumChart: Option[BarChart[String, Number]] = None
+  private var splChart:Option[LineChart[Number, Number]] = None
 
   def receive(video: VideoData): Unit = {
     val measurement: Measurement = getMeasurement(video.timestamp)
@@ -46,9 +47,11 @@ object SoundCamInfoHandler {
       val frame = new Mat(video.v, video.h, CvType.CV_8UC1)
       val bs = ByteString(video.data)
       frame.put(0, 0, bs.toArray)
-      Imgproc.drawMarker(frame, minMax.maxLoc, new Scalar(255, 0, 0), 3)
+      val colorFrame = new Mat()
+      Imgproc.cvtColor(frame, colorFrame, Imgproc.COLOR_GRAY2RGBA, 3)
+      Imgproc.drawMarker(colorFrame, minMax.maxLoc, new Scalar(0, 0, 255), 3)
       val buffer = new MatOfByte
-      Imgcodecs.imencode(".png", frame, buffer);
+      Imgcodecs.imencode(".png", colorFrame, buffer);
       val img = new Image(new ByteArrayInputStream(buffer.toArray()))
       Platform.runLater(new Runnable() {
         override def run(): Unit = {
@@ -83,18 +86,18 @@ object SoundCamInfoHandler {
          ac <- me.acousticOpt
          } {
       val minMax = acousticHandler(ac)
-      videoHandler(video, minMax.get)
+      videoHandler(video, minMax)
     }
   }
 
-  private def acousticHandler(ac: AcousticImage) = {
+  private def acousticHandler(ac: AcousticImage): MinMaxLocResult = {
     def showMinMax(frame: Mat, name: String): Core.MinMaxLocResult = {
       val ret = Core.minMaxLoc(frame)
       logger.info(s"$name max=${ret.maxVal} X=${ret.maxLoc.x} Y=${ret.maxLoc.y}")
       ret
     }
 
-    for (sink <- acousticSink) yield {
+
       val original = new Mat(48, 64, CvType.CV_32FC1)
       original.put(0, 0, ac.data)
       showMinMax(original, "frame")
@@ -135,7 +138,7 @@ object SoundCamInfoHandler {
       })
 
        */
-    }
+
   }
 
   def receive(spectrum: Spectrum): Unit = {
@@ -186,14 +189,32 @@ object SoundCamInfoHandler {
     spectrumChart = Some(chart)
   }
 
-  val toChartData = (xy: (String, Double)) => XYChart.Data[String, Number](xy._1, xy._2)
+  def setSplChart(chart:LineChart[Number, Number]) : Unit = {
+    splChart = Some(chart)
+  }
 
+  val toLineChartData = (xy: (Int, Double)) => XYChart.Data[Number, Number](xy._1, xy._2)
+  val toBarChartData = (xy: (String, Double)) => XYChart.Data[String, Number](xy._1, xy._2)
+
+  val splList:ListBuffer[Double] = scala.collection.mutable.ListBuffer(0,0,0,0,0,0,0,0,0,0)
+  // val timelabels = Seq("前8秒", "前7秒", "前6秒", "前5秒", "前4秒", "前3秒", "前2秒", "前1秒", "現在")
+  val timelabels:Seq[Int] = Seq(-8, -7, -6, -5, -4, -3, -2, -1, 0)
   def receive(duoValues: DuoValues) = {
     Platform.runLater(new Runnable() {
       override def run(): Unit = {
         for (duoDba <- duoDbaOpt) {
           if (duoValues.instantValues.nonEmpty) {
-            duoDba.setText(s"${duoValues.instantValues(0)}")
+            duoDba.setText(s"${duoValues.instantValues(3)}")
+            splList.remove(0)
+            splList.append(duoValues.instantValues(3))
+            for(splChart <-splChart){
+              val spectrum: Seq[(Int, Double)] = timelabels.zip(splList)
+              val series1 = new XYChart.Series[Number, Number] {
+                name = "LAF"
+                data = spectrum.map(toLineChartData)
+              }
+              splChart.data = series1
+            }
           }
         }
 
@@ -201,7 +222,7 @@ object SoundCamInfoHandler {
           val spectrum: Seq[(String, Double)] = Duo.ONE_THIRD_OCTAVE_BANDS_CENTER_FREQ.zip(duoValues.spectrum)
           val series1 = new XYChart.Series[String, Number] {
             name = "1/3 頻譜"
-            data = spectrum.map(toChartData)
+            data = spectrum.map(toBarChartData)
           }
           spectrumChart.data = series1
         }
